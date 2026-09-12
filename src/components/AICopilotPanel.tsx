@@ -77,7 +77,7 @@ export const AICopilotPanel: React.FC<Props> = ({
           attendees: Array.from(new Set(transcript.map((t) => t.speaker))),
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as any;
       setMomMarkdown(data.markdown || "");
     } catch (err) {
       console.error("MOM error:", err);
@@ -106,7 +106,7 @@ export const AICopilotPanel: React.FC<Props> = ({
           roomContext: `Meeting on ${meetingTopic}`,
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as any;
       setCopilotHistory((prev) => [
         ...prev,
         { role: "ai", text: data.answer || "No response received from AI." },

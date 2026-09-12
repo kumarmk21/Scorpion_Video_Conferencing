@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import { AccessToken } from "livekit-server-sdk";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -80,7 +81,57 @@ function getOrCreateRoom(roomId: string, roomName?: string): RoomState {
 
 // REST API Endpoints
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", aiConfigured: Boolean(process.env.GEMINI_API_KEY) });
+  res.json({
+    status: "ok",
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    livekitConfigured: Boolean(process.env.LIVEKIT_API_KEY && process.env.LIVEKIT_API_SECRET),
+    livekitUrl: process.env.LIVEKIT_URL || "wss://omnimeet-gm23xe8u.livekit.cloud",
+  });
+});
+
+// LiveKit SFU Token Generator Endpoint
+app.post("/api/livekit/token", async (req, res) => {
+  try {
+    const { roomName, participantName, participantId } = req.body;
+    if (!roomName || !participantName) {
+      return res.status(400).json({ error: "roomName and participantName are required" });
+    }
+
+    const apiKey = process.env.LIVEKIT_API_KEY;
+    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const livekitUrl = process.env.LIVEKIT_URL || "wss://omnimeet-gm23xe8u.livekit.cloud";
+
+    if (!apiKey || !apiSecret) {
+      return res.json({
+        configured: false,
+        message: "LiveKit API Key or Secret not yet configured in environment.",
+        livekitUrl,
+      });
+    }
+
+    const at = new AccessToken(apiKey, apiSecret, {
+      identity: participantId || participantName,
+      name: participantName,
+    });
+
+    at.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+      canPublishData: true,
+    });
+
+    const token = await at.toJwt();
+    res.json({
+      configured: true,
+      token,
+      livekitUrl,
+    });
+  } catch (err: any) {
+    console.error("LiveKit token generation error:", err);
+    res.status(500).json({ error: err?.message || "Failed to generate LiveKit token" });
+  }
 });
 
 // Room state endpoints
