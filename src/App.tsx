@@ -77,78 +77,10 @@ export default function App() {
   // Chat & Transcript
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([
-    {
-      id: "tr-1",
-      speaker: "Sarah Chen (VP Eng)",
-      text: "Welcome everyone. Today our priority is deciding on the media server architecture for our organisation's video conferencing rollout.",
-      timestamp: Date.now() - 180000,
-    },
-    {
-      id: "tr-2",
-      speaker: "Marcus Vance (Principal Architect)",
-      text: "Right. P2P Mesh breaks down past 4 participants due to N-squared upload requirements. We definitely need an SFU like LiveKit or Mediasoup.",
-      timestamp: Date.now() - 120000,
-    },
-    {
-      id: "tr-3",
-      speaker: "Elena Rostova (Infrastructure)",
-      text: "Agreed. An SFU only requires each participant to upload one stream. We must also run Coturn for STUN/TURN on port 443 to bypass corporate firewalls.",
-      timestamp: Date.now() - 60000,
-    },
-    {
-      id: "tr-4",
-      speaker: "Alex Morgan",
-      text: "And with Gemini AI integrated, we can transcribe, generate live action items, and automatically output meeting minutes.",
-      timestamp: Date.now() - 30000,
-    },
-  ]);
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
 
-  // Remote participants list
-  const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>([
-    {
-      id: "peer-sarah",
-      name: "Sarah Chen",
-      role: "speaker",
-      avatarColor: "#4f46e5",
-      isMuted: false,
-      isVideoOff: false,
-      isHandRaised: false,
-      isScreenSharing: false,
-      isSpeaking: true,
-      audioLevel: 65,
-      connectionQuality: "excellent",
-      joinedAt: Date.now() - 600000,
-    },
-    {
-      id: "peer-marcus",
-      name: "Marcus Vance",
-      role: "speaker",
-      avatarColor: "#059669",
-      isMuted: false,
-      isVideoOff: false,
-      isHandRaised: false,
-      isScreenSharing: false,
-      isSpeaking: false,
-      audioLevel: 10,
-      connectionQuality: "excellent",
-      joinedAt: Date.now() - 500000,
-    },
-    {
-      id: "peer-elena",
-      name: "Elena Rostova",
-      role: "attendee",
-      avatarColor: "#d97706",
-      isMuted: true,
-      isVideoOff: true,
-      isHandRaised: true,
-      isScreenSharing: false,
-      isSpeaking: false,
-      audioLevel: 0,
-      connectionQuality: "good",
-      joinedAt: Date.now() - 400000,
-    },
-  ]);
+  // Remote participants list - starts completely empty so only REAL users appear
+  const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>([]);
 
   // Initialize camera and mic stream
   useEffect(() => {
@@ -191,26 +123,6 @@ export default function App() {
     const interval = setInterval(() => {
       setCallDuration((prev) => prev + 1);
     }, 1000);
-    return () => clearInterval(interval);
-  }, [inMeeting]);
-
-  // Periodic simulated speaking indicator for remote peers to make meeting feel alive
-  useEffect(() => {
-    if (!inMeeting) return;
-    const interval = setInterval(() => {
-      setRemoteParticipants((prev) =>
-        prev.map((p) => {
-          if (p.isMuted) return p;
-          const randomSpeaking = Math.random() > 0.6;
-          return {
-            ...p,
-            isSpeaking: randomSpeaking,
-            audioLevel: randomSpeaking ? Math.floor(Math.random() * 60) + 30 : 5,
-          };
-        })
-      );
-    }, 4000);
-
     return () => clearInterval(interval);
   }, [inMeeting]);
 
@@ -662,29 +574,46 @@ export default function App() {
             </div>
           ) : (
             /* Grid View Mode */
-            <div
-              className={`w-full h-full grid gap-3 ${
-                allParticipants.length <= 1
-                  ? "grid-cols-1"
-                  : allParticipants.length === 2
-                  ? "grid-cols-1 md:grid-cols-2"
-                  : allParticipants.length <= 4
-                  ? "grid-cols-2"
-                  : "grid-cols-2 md:grid-cols-3"
-              }`}
-            >
-              {allParticipants.map((p) => (
-                <VideoTile
-                  key={p.id}
-                  participant={p}
-                  isLocal={p.id === currentUserId}
-                  virtualBg={p.id === currentUserId ? virtualBg : "none"}
-                  onPin={() => {
-                    setSpotlightId(p.id);
-                    setViewMode("spotlight");
-                  }}
-                />
-              ))}
+            <div className="w-full h-full flex flex-col gap-3">
+              {allParticipants.length === 1 && (
+                <div className="flex items-center justify-between px-4 py-2 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-xs text-indigo-200">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>You are the only person in this room. Share your link or room code <strong>{roomId}</strong> for others to join!</span>
+                  </div>
+                  <button
+                    onClick={handleCopyRoomLink}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-all shadow-sm"
+                  >
+                    {copiedRoomCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedRoomCode ? "Copied Link!" : "Copy Invite Link"}</span>
+                  </button>
+                </div>
+              )}
+              <div
+                className={`w-full flex-1 grid gap-3 ${
+                  allParticipants.length <= 1
+                    ? "grid-cols-1"
+                    : allParticipants.length === 2
+                    ? "grid-cols-1 md:grid-cols-2"
+                    : allParticipants.length <= 4
+                    ? "grid-cols-2"
+                    : "grid-cols-2 md:grid-cols-3"
+                }`}
+              >
+                {allParticipants.map((p) => (
+                  <VideoTile
+                    key={p.id}
+                    participant={p}
+                    isLocal={p.id === currentUserId}
+                    virtualBg={p.id === currentUserId ? virtualBg : "none"}
+                    onPin={() => {
+                      setSpotlightId(p.id);
+                      setViewMode("spotlight");
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -46,9 +46,20 @@ export const MeetingLobby: React.FC<Props> = ({
   onOpenServerGuide,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [name, setName] = useState("Alex Morgan");
-  const [roomId, setRoomId] = useState("corp-strategy-room");
+  const [name, setName] = useState(() => {
+    return localStorage.getItem("omnimeet_username") || "";
+  });
+  const [roomId, setRoomId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") || "corp-strategy-room";
+  });
   const [role, setRole] = useState<"host" | "speaker" | "attendee">("host");
+
+  useEffect(() => {
+    if (name) {
+      localStorage.setItem("omnimeet_username", name);
+    }
+  }, [name]);
 
   useEffect(() => {
     if (videoRef.current && localStream) {
