@@ -52,11 +52,31 @@ export const VideoTile: React.FC<Props> = ({
           : "border-slate-800/80 hover:border-slate-700"
       }`}
     >
+      {/* Hidden audio element for remote participants so audio ALWAYS plays cleanly */}
+      {!isLocal && participant.stream && (
+        <audio
+          ref={(el) => {
+            if (el && participant.stream && el.srcObject !== participant.stream) {
+              el.srcObject = participant.stream;
+              el.play().catch(() => {});
+            }
+          }}
+          autoPlay
+          playsInline
+        />
+      )}
+
       {/* Video Stream or Avatar fallback */}
       {!participant.isVideoOff && participant.stream ? (
         <div className="relative w-full h-full overflow-hidden bg-black flex items-center justify-center">
           <video
-            ref={videoRef}
+            ref={(el) => {
+              videoRef.current = el;
+              if (el && participant.stream && el.srcObject !== participant.stream) {
+                el.srcObject = participant.stream;
+                el.play().catch(() => {});
+              }
+            }}
             autoPlay
             playsInline
             muted={isLocal}

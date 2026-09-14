@@ -33,15 +33,27 @@ import {
   Monitor,
   Radio
 } from "lucide-react";
-import { Room, RoomEvent, RemoteTrack, RemoteParticipant } from "livekit-client";
+import { Room, RoomEvent, RemoteTrack, RemoteParticipant, Track } from "livekit-client";
 import { fetchLiveKitToken, createLiveKitRoom } from "./utils/livekit";
 
 export default function App() {
   // Navigation & Meeting State
   const [inMeeting, setInMeeting] = useState(false);
-  const [currentUserId] = useState(() => `user-${Date.now().toString(36)}`);
-  const [userName, setUserName] = useState("Alex Morgan");
-  const [roomId, setRoomId] = useState("enterprise-architecture-sync");
+  const [currentUserId] = useState(() => `user-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`);
+  const [userName, setUserName] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("omnimeet_username") || "Alex Morgan";
+    }
+    return "Alex Morgan";
+  });
+  const [roomId, setRoomId] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get("room");
+      if (roomParam && roomParam.trim()) return roomParam.trim();
+    }
+    return "corp-strategy-room";
+  });
   const [userRole, setUserRole] = useState<"host" | "speaker" | "attendee">("host");
 
   // LiveKit SFU Connection State
@@ -146,43 +158,100 @@ export default function App() {
           activeRoom = room;
           livekitRoomRef.current = room;
 
-          // Track Subscribed handler: real remote audio and video
-          room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication, participant: RemoteParticipant) => {
-            const mediaStream = new MediaStream([track.mediaStreamTrack]);
-            setRemoteParticipants((prev) => {
-              const existing = prev.find((p) => p.id === participant.identity);
-              if (existing) {
-                return prev.map((p) =>
-                  p.id === participant.identity
-                    ? { ...p, stream: mediaStream, isVideoOff: false }
-                    : p
-                );
-              } else {
-                return [
-                  ...prev,
-                  {
-                    id: participant.identity,
-                    name: participant.name || participant.identity,
-                    role: "speaker",
-                    avatarColor: "#6366f1",
-                    isMuted: false,
-                    isVideoOff: false,
-                    isHandRaised: false,
-                    isScreenSharing: false,
-                    isSpeaking: false,
-                    audioLevel: 20,
-                    stream: mediaStream,
-                    connectionQuality: "excellent",
-                    joinedAt: Date.now(),
-                  },
-                ];
+          // Helper to rebuild participant state from LiveKit RemoteParticipant
+          const syncRemoteParticipant = (participant: RemoteParticipant) => {
+            const tracks: MediaStreamTrack[] = [];
+            let hasVideo = false;
+            let hasAudio = false;
+
+            participant.trackPublications.forEach((pub) => {
+              if (pub.track && pub.track.mediaStreamTrack) {
+                tracks.push(pub.track.mediaStreamTrack);
+                if (pub.kind === "video" && !pub.isMuted) {
+                  hasVideo = true;
+                }
+                if (pub.kind === "audio" && !pub.isMuted) {
+                  hasAudio = true;
+                  try {
+                    const audioEl = pub.track.attach();
+                    audioEl.autoplay = true;
+                  } catch (e) {
+                    // Attach handled by VideoTile
+                  }
+                }
               }
             });
+
+            const mediaStream = tracks.length > 0 ? new MediaStream(tracks) : undefined;
+
+            setRemoteParticipants((prev) => {
+              const existingIndex = prev.findIndex((p) => p.id === participant.identity);
+              const updated: Participant = {
+                id: participant.identity,
+                name: participant.name || participant.identity,
+                role: "speaker",
+                avatarColor: existingIndex >= 0 ? prev[existingIndex].avatarColor : "#10b981",
+                isMuted: !hasAudio || !participant.isMicrophoneEnabled,
+                isVideoOff: !hasVideo,
+                isHandRaised: existingIndex >= 0 ? prev[existingIndex].isHandRaised : false,
+                isScreenSharing: Array.from(participant.trackPublications.values()).some(
+                  (pub) => pub.source === Track.Source.ScreenShare
+                ),
+                isSpeaking: participant.isSpeaking,
+                audioLevel: participant.isSpeaking ? 65 : 0,
+                stream: mediaStream || (existingIndex >= 0 ? prev[existingIndex].stream : undefined),
+                connectionQuality: "excellent",
+              };
+
+              if (existingIndex >= 0) {
+                const copy = [...prev];
+                copy[existingIndex] = updated;
+                return copy;
+              } else {
+                return [...prev, updated];
+              }
+            });
+          };
+
+          // Handle participant lifecycle events
+          room.on(RoomEvent.ParticipantConnected, (participant: RemoteParticipant) => {
+            syncRemoteParticipant(participant);
           });
 
-          // Participant disconnected
-          room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+          room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
             setRemoteParticipants((prev) => prev.filter((p) => p.id !== participant.identity));
+          });
+
+          // Handle track subscription events
+          room.on(RoomEvent.TrackSubscribed, (_track, _publication, participant: RemoteParticipant) => {
+            syncRemoteParticipant(participant);
+          });
+
+          room.on(RoomEvent.TrackUnsubscribed, (_track, _publication, participant: RemoteParticipant) => {
+            syncRemoteParticipant(participant);
+          });
+
+          room.on(RoomEvent.TrackMuted, (_publication, participant) => {
+            if (participant instanceof RemoteParticipant) {
+              syncRemoteParticipant(participant);
+            }
+          });
+
+          room.on(RoomEvent.TrackUnmuted, (_publication, participant) => {
+            if (participant instanceof RemoteParticipant) {
+              syncRemoteParticipant(participant);
+            }
+          });
+
+          room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+            const speakingIds = new Set(speakers.map((s) => s.identity));
+            setRemoteParticipants((prev) =>
+              prev.map((p) => ({
+                ...p,
+                isSpeaking: speakingIds.has(p.id),
+                audioLevel: speakingIds.has(p.id) ? 75 : 0,
+              }))
+            );
           });
 
           // Connect to the LiveKit SFU server
@@ -190,12 +259,32 @@ export default function App() {
           if (isSubscribed) {
             setLivekitStatus("connected");
 
+            // Synchronize any peers that were ALREADY in the room before this user joined
+            room.remoteParticipants.forEach((p) => {
+              syncRemoteParticipant(p);
+            });
+
             // Publish local media
-            if (!isVideoOff) {
-              await room.localParticipant.setCameraEnabled(true).catch(console.warn);
-            }
-            if (!isMuted) {
-              await room.localParticipant.setMicrophoneEnabled(true).catch(console.warn);
+            if (localStream) {
+              const videoTrack = localStream.getVideoTracks()[0];
+              if (videoTrack && !isVideoOff) {
+                await room.localParticipant
+                  .publishTrack(videoTrack, { name: "camera", source: Track.Source.Camera })
+                  .catch(console.warn);
+              }
+              const audioTrack = localStream.getAudioTracks()[0];
+              if (audioTrack && !isMuted) {
+                await room.localParticipant
+                  .publishTrack(audioTrack, { name: "microphone", source: Track.Source.Microphone })
+                  .catch(console.warn);
+              }
+            } else {
+              if (!isVideoOff) {
+                await room.localParticipant.setCameraEnabled(true).catch(console.warn);
+              }
+              if (!isMuted) {
+                await room.localParticipant.setMicrophoneEnabled(true).catch(console.warn);
+              }
             }
           }
         } else {
@@ -369,9 +458,14 @@ export default function App() {
   };
 
   const handleJoinMeeting = (name: string, room: string, role: "host" | "speaker" | "attendee") => {
-    setUserName(name);
-    setRoomId(room);
+    const cleanName = name.trim() || "Guest";
+    const cleanRoom = room.trim().toLowerCase() || "corp-strategy-room";
+    setUserName(cleanName);
+    setRoomId(cleanRoom);
     setUserRole(role);
+    try {
+      localStorage.setItem("omnimeet_username", cleanName);
+    } catch (e) {}
     setInMeeting(true);
   };
 
@@ -383,7 +477,8 @@ export default function App() {
   };
 
   const handleCopyRoomLink = () => {
-    const inviteUrl = `${window.location.origin}?room=${roomId}`;
+    const cleanRoom = encodeURIComponent(roomId.trim().toLowerCase());
+    const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${cleanRoom}`;
     navigator.clipboard.writeText(inviteUrl);
     setCopiedRoomCode(true);
     setTimeout(() => setCopiedRoomCode(false), 2000);

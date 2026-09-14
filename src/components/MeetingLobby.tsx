@@ -51,7 +51,8 @@ export const MeetingLobby: React.FC<Props> = ({
   });
   const [roomId, setRoomId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("room") || "corp-strategy-room";
+    const r = params.get("room");
+    return r ? r.trim().toLowerCase() : "corp-strategy-room";
   });
   const [role, setRole] = useState<"host" | "speaker" | "attendee">("host");
 
