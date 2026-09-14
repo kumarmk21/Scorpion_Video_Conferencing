@@ -54,7 +54,19 @@ export const MeetingLobby: React.FC<Props> = ({
     const r = params.get("room");
     return r ? r.trim().toLowerCase().replace(/\s+/g, "-") : "corp-strategy-room";
   });
-  const [role, setRole] = useState<"host" | "speaker" | "attendee">("host");
+  const [role, setRole] = useState<"host" | "speaker" | "attendee">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get("role");
+      if (urlRole && ["host", "speaker", "attendee"].includes(urlRole)) {
+        return urlRole as "host" | "speaker" | "attendee";
+      }
+      if (params.get("room")) {
+        return "attendee";
+      }
+    }
+    return "host";
+  });
 
   const isInAppBrowser = typeof navigator !== "undefined" && /WhatsApp|FBAN|FBAV|Instagram|Line/i.test(navigator.userAgent || "");
 

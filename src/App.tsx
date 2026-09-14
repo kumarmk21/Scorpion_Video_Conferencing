@@ -55,7 +55,17 @@ export default function App() {
     }
     return "corp-strategy-room";
   });
-  const [userRole, setUserRole] = useState<"host" | "speaker" | "attendee">("host");
+  const [userRole, setUserRole] = useState<"host" | "speaker" | "attendee">(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlRole = params.get("role");
+      if (urlRole && ["host", "speaker", "attendee"].includes(urlRole)) {
+        return urlRole as "host" | "speaker" | "attendee";
+      }
+      if (params.get("room")) return "attendee";
+    }
+    return "host";
+  });
 
   // Connection & WebRTC Mesh / SFU State
   const [connectionMode, setConnectionMode] = useState<"sfu" | "p2p">("sfu");
