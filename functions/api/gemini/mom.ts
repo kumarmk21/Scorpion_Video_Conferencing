@@ -16,7 +16,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const apiKey = env.GEMINI_API_KEY;
     const meetingDate = date || new Date().toLocaleDateString();
-    const attendeeList = Array.isArray(attendees) ? attendees.join(", ") : "Alex Morgan, Sarah Chen, Marcus Vance, Elena Rostova";
+    const attendeeList = Array.isArray(attendees) && attendees.length > 0 ? attendees.join(", ") : "Meeting Attendees";
 
     if (!apiKey) {
       return new Response(

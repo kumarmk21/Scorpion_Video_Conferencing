@@ -345,13 +345,12 @@ export default function App() {
     }).catch(console.warn);
   };
 
-  // Add simulated conversation utterance
+  // Add sample conversation utterance
   const handleAddSimulatedTranscript = () => {
     const quotes = [
-      { speaker: "Marcus Vance", text: "We should benchmark Opus audio at 32kbps to ensure crystal clear voice quality even over spotty 4G connections." },
-      { speaker: "Sarah Chen", text: "I approve deploying the LiveKit SFU cluster to AWS us-east-1 and eu-central-1 for our team." },
-      { speaker: "Elena Rostova", text: "I will document the STUN/TURN port mapping guidelines and share them on our engineering wiki by Friday." },
-      { speaker: "Marcus Vance", text: "Don't forget to configure end-to-end encryption (E2EE) with insertable streams for HIPAA and SOC2 compliance." },
+      { speaker: userName || "Participant", text: "Benchmarking audio at 32kbps ensures crystal clear voice quality even over spotty 4G connections." },
+      { speaker: userName || "Participant", text: "Deploying the LiveKit SFU cluster provides high concurrency and sub-100ms real-time latency." },
+      { speaker: userName || "Participant", text: "End-to-end encryption with DTLS/SRTP protects real-time media streams." },
     ];
     const picked = quotes[Math.floor(Math.random() * quotes.length)];
     const entry: TranscriptEntry = {
