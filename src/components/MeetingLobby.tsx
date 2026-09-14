@@ -52,9 +52,11 @@ export const MeetingLobby: React.FC<Props> = ({
   const [roomId, setRoomId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const r = params.get("room");
-    return r ? r.trim().toLowerCase() : "corp-strategy-room";
+    return r ? r.trim().toLowerCase().replace(/\s+/g, "-") : "corp-strategy-room";
   });
   const [role, setRole] = useState<"host" | "speaker" | "attendee">("host");
+
+  const isInAppBrowser = typeof navigator !== "undefined" && /WhatsApp|FBAN|FBAV|Instagram|Line/i.test(navigator.userAgent || "");
 
   useEffect(() => {
     if (name) {
@@ -71,7 +73,7 @@ export const MeetingLobby: React.FC<Props> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !roomId.trim()) return;
-    onJoinMeeting(name.trim(), roomId.trim(), role);
+    onJoinMeeting(name.trim(), roomId.trim().toLowerCase().replace(/\s+/g, "-"), role);
   };
 
   const getFilterStyle = () => {
@@ -223,6 +225,24 @@ export const MeetingLobby: React.FC<Props> = ({
               </p>
             </div>
 
+            {isInAppBrowser && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-200 text-xs flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-amber-300">In-App Browser (WhatsApp)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(window.location.href);
+                    }}
+                    className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded text-[11px] border border-amber-500/40"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+                <span>For best mobile camera and microphone support, tap <strong>(⋮ or Share)</strong> and select <strong>"Open in Chrome"</strong> or <strong>"Open in Safari"</strong>.</span>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               {/* Name Input */}
               <div className="space-y-1.5">
@@ -273,6 +293,13 @@ export const MeetingLobby: React.FC<Props> = ({
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {role === "host"
+                    ? "Host: Room creator with full control"
+                    : role === "speaker"
+                    ? "Speaker: Presenter with camera, mic & screen share"
+                    : "Attendee: Active participant with full camera, mic & chat"}
+                </p>
               </div>
 
               {/* Action Button */}

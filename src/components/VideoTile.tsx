@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, VideoOff, Hand, Pin, Shield, Wifi, Monitor } from "lucide-react";
 import { Participant, VirtualBackground } from "../types";
 
@@ -20,11 +20,23 @@ export const VideoTile: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const [audioBlocked, setAudioBlocked] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     if (videoRef.current && participant.stream) {
       videoRef.current.srcObject = participant.stream;
     }
   }, [participant.stream]);
+
+  const handleManualAudioPlay = () => {
+    if (audioRef.current) {
+      audioRef.current
+        .play()
+        .then(() => setAudioBlocked(false))
+        .catch(console.warn);
+    }
+  };
 
   // Virtual background styling filter
   const getFilterStyle = () => {
@@ -44,7 +56,7 @@ export const VideoTile: React.FC<Props> = ({
 
   return (
     <div
-      className={`group relative w-full h-full min-h-[220px] rounded-2xl overflow-hidden bg-slate-900 border transition-all duration-300 flex items-center justify-center select-none shadow-lg ${
+      className={`group relative w-full h-full min-h-[160px] sm:min-h-[220px] rounded-2xl overflow-hidden bg-slate-900 border transition-all duration-300 flex items-center justify-center select-none shadow-lg ${
         participant.isSpeaking
           ? "border-emerald-500 shadow-emerald-500/20 shadow-xl ring-2 ring-emerald-500/40"
           : isSpotlight
@@ -56,14 +68,29 @@ export const VideoTile: React.FC<Props> = ({
       {!isLocal && participant.stream && (
         <audio
           ref={(el) => {
+            audioRef.current = el;
             if (el && participant.stream && el.srcObject !== participant.stream) {
               el.srcObject = participant.stream;
-              el.play().catch(() => {});
+              el.play().catch((e) => {
+                console.warn("Autoplay block detected:", e);
+                setAudioBlocked(true);
+              });
             }
           }}
           autoPlay
           playsInline
         />
+      )}
+
+      {/* Audio blocked unlock banner for iOS / mobile browsers */}
+      {audioBlocked && !isLocal && (
+        <button
+          onClick={handleManualAudioPlay}
+          className="absolute z-30 top-3 left-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg animate-pulse"
+        >
+          <Mic className="w-3.5 h-3.5" />
+          <span>Tap to Enable Audio</span>
+        </button>
       )}
 
       {/* Video Stream or Avatar fallback */}
@@ -79,7 +106,7 @@ export const VideoTile: React.FC<Props> = ({
             }}
             autoPlay
             playsInline
-            muted={isLocal}
+            muted={true}
             className={`w-full h-full object-cover ${isLocal && !participant.isScreenSharing ? "scale-x-[-1]" : ""}`}
             style={getFilterStyle()}
           />

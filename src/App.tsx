@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Room, RoomEvent, RemoteTrack, RemoteParticipant, Track } from "livekit-client";
 import { fetchLiveKitToken, createLiveKitRoom } from "./utils/livekit";
+import { P2PConferenceManager } from "./utils/p2p";
 
 export default function App() {
   // Navigation & Meeting State
@@ -56,8 +57,10 @@ export default function App() {
   });
   const [userRole, setUserRole] = useState<"host" | "speaker" | "attendee">("host");
 
-  // LiveKit SFU Connection State
+  // Connection & WebRTC Mesh / SFU State
+  const [connectionMode, setConnectionMode] = useState<"sfu" | "p2p">("sfu");
   const livekitRoomRef = useRef<Room | null>(null);
+  const p2pManagerRef = useRef<P2PConferenceManager | null>(null);
   const [livekitStatus, setLivekitStatus] = useState<"disconnected" | "connecting" | "connected" | "demo">("disconnected");
   const [livekitUrl, setLivekitUrl] = useState<string>("wss://omnimeet-gm23xe8u.livekit.cloud");
 
@@ -254,50 +257,160 @@ export default function App() {
             );
           });
 
-          // Connect to the LiveKit SFU server
-          await room.connect(tokenRes.livekitUrl, tokenRes.token);
-          if (isSubscribed) {
-            setLivekitStatus("connected");
+          // Handle real-time LiveKit Data Channel (chat, reactions, hand raises)
+          room.on(RoomEvent.DataReceived, (payload: Uint8Array, participant?: RemoteParticipant) => {
+            try {
+              const text = new TextDecoder().decode(payload);
+              const data = JSON.parse(text);
+              if (data.type === "chat" && data.message) {
+                setChatMessages((prev) => {
+                  if (prev.some((m) => m.id === data.message.id)) return prev;
+                  return [...prev, data.message];
+                });
+                setUnreadChatCount((prev) => prev + 1);
+              } else if (data.type === "reaction" && data.reaction) {
+                setReactions((prev) => [...prev, data.reaction]);
+                setTimeout(() => {
+                  setReactions((prev) => prev.filter((r) => r.id !== data.reaction.id));
+                }, 2500);
+              } else if (data.type === "hand_raise" && data.userId) {
+                setRemoteParticipants((prev) =>
+                  prev.map((p) => (p.id === data.userId ? { ...p, isHandRaised: data.isHandRaised } : p))
+                );
+              }
+            } catch (err) {
+              console.warn("DataChannel message parse notice:", err);
+            }
+          });
 
-            // Synchronize any peers that were ALREADY in the room before this user joined
-            room.remoteParticipants.forEach((p) => {
-              syncRemoteParticipant(p);
-            });
+          try {
+            // Connect to the LiveKit SFU server
+            await room.connect(tokenRes.livekitUrl, tokenRes.token);
+            if (isSubscribed) {
+              setConnectionMode("sfu");
+              setLivekitStatus("connected");
 
-            // Publish local media
-            if (localStream) {
-              const videoTrack = localStream.getVideoTracks()[0];
-              if (videoTrack && !isVideoOff) {
-                await room.localParticipant
-                  .publishTrack(videoTrack, { name: "camera", source: Track.Source.Camera })
-                  .catch(console.warn);
-              }
-              const audioTrack = localStream.getAudioTracks()[0];
-              if (audioTrack && !isMuted) {
-                await room.localParticipant
-                  .publishTrack(audioTrack, { name: "microphone", source: Track.Source.Microphone })
-                  .catch(console.warn);
-              }
-            } else {
-              if (!isVideoOff) {
-                await room.localParticipant.setCameraEnabled(true).catch(console.warn);
-              }
-              if (!isMuted) {
-                await room.localParticipant.setMicrophoneEnabled(true).catch(console.warn);
+              // Synchronize any peers that were ALREADY in the room before this user joined
+              room.remoteParticipants.forEach((p) => {
+                syncRemoteParticipant(p);
+              });
+
+              // Publish local media
+              if (localStream) {
+                const videoTrack = localStream.getVideoTracks()[0];
+                if (videoTrack && !isVideoOff) {
+                  await room.localParticipant
+                    .publishTrack(videoTrack, { name: "camera", source: Track.Source.Camera })
+                    .catch(console.warn);
+                }
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack && !isMuted) {
+                  await room.localParticipant
+                    .publishTrack(audioTrack, { name: "microphone", source: Track.Source.Microphone })
+                    .catch(console.warn);
+                }
+              } else {
+                if (!isVideoOff) {
+                  await room.localParticipant.setCameraEnabled(true).catch(console.warn);
+                }
+                if (!isMuted) {
+                  await room.localParticipant.setMicrophoneEnabled(true).catch(console.warn);
+                }
               }
             }
+          } catch (connErr) {
+            console.warn("LiveKit SFU connection error; falling back to direct P2P mesh:", connErr);
+            startP2P();
           }
         } else {
-          setLivekitStatus("demo");
-          if (tokenRes.livekitUrl) {
-            setLivekitUrl(tokenRes.livekitUrl);
-          }
+          console.log("LiveKit SFU not configured; activating direct P2P mesh...");
+          startP2P();
         }
       } catch (err) {
-        console.warn("LiveKit connection notice:", err);
-        if (isSubscribed) setLivekitStatus("demo");
+        console.warn("LiveKit connection notice, activating direct P2P mesh:", err);
+        startP2P();
       }
     }
+
+    const startP2P = () => {
+      if (!isSubscribed) return;
+      console.log("[OmniMeet] Activating direct P2P WebRTC mesh...");
+      setConnectionMode("p2p");
+      setLivekitStatus("connecting");
+
+      if (p2pManagerRef.current) {
+        p2pManagerRef.current.destroy();
+        p2pManagerRef.current = null;
+      }
+
+      const manager = new P2PConferenceManager(
+        roomId,
+        currentUserId,
+        userName,
+        userRole,
+        localStream,
+        {
+          onRemoteStream: (peerId, name, role, stream) => {
+            console.log("[OmniMeet] Remote stream connected from:", name, peerId);
+            setRemoteParticipants((prev) => {
+              const existingIdx = prev.findIndex((p) => p.id === peerId);
+              const updated: Participant = {
+                id: peerId,
+                name: name || "Colleague",
+                role: role,
+                avatarColor: existingIdx >= 0 ? prev[existingIdx].avatarColor : "#10b981",
+                isMuted: false,
+                isVideoOff: false,
+                isSpeaking: false,
+                audioLevel: 0,
+                isHandRaised: false,
+                isScreenSharing: false,
+                stream: stream,
+                connectionQuality: "excellent",
+              };
+              if (existingIdx >= 0) {
+                const copy = [...prev];
+                copy[existingIdx] = updated;
+                return copy;
+              }
+              return [...prev, updated];
+            });
+          },
+          onRemoteLeave: (peerId) => {
+            console.log("[OmniMeet] Remote peer left:", peerId);
+            setRemoteParticipants((prev) => prev.filter((p) => p.id !== peerId));
+          },
+          onRemoteStateChange: (peerId, isMuted, isVideoOff, isHandRaised) => {
+            setRemoteParticipants((prev) =>
+              prev.map((p) =>
+                p.id === peerId ? { ...p, isMuted, isVideoOff, isHandRaised } : p
+              )
+            );
+          },
+          onChatMessage: (msg) => {
+            setChatMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+            setUnreadChatCount((prev) => prev + 1);
+          },
+          onReaction: (rx) => {
+            setReactions((prev) => [...prev, rx]);
+            setTimeout(() => {
+              setReactions((prev) => prev.filter((r) => r.id !== rx.id));
+            }, 2500);
+          },
+          onStatusChange: (status) => {
+            if (isSubscribed) {
+              setLivekitStatus(status);
+            }
+          },
+        }
+      );
+
+      p2pManagerRef.current = manager;
+      manager.start();
+    };
 
     initLiveKit();
 
@@ -334,6 +447,10 @@ export default function App() {
         activeRoom.disconnect();
         livekitRoomRef.current = null;
       }
+      if (p2pManagerRef.current) {
+        p2pManagerRef.current.destroy();
+        p2pManagerRef.current = null;
+      }
       setLivekitStatus("disconnected");
       fetch(`/api/rooms/${roomId}/leave`, {
         method: "POST",
@@ -342,6 +459,13 @@ export default function App() {
       }).catch(console.warn);
     };
   }, [inMeeting, roomId]);
+
+  // Sync updated localStream to P2P manager
+  useEffect(() => {
+    if (p2pManagerRef.current && localStream) {
+      p2pManagerRef.current.updateLocalStream(localStream);
+    }
+  }, [localStream]);
 
   // Media control toggles
   const handleToggleMic = () => {
@@ -355,6 +479,9 @@ export default function App() {
     if (livekitRoomRef.current) {
       livekitRoomRef.current.localParticipant.setMicrophoneEnabled(!next).catch(console.warn);
     }
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.broadcastState(next, isVideoOff, isHandRaised);
+    }
   };
 
   const handleToggleVideo = async () => {
@@ -367,6 +494,9 @@ export default function App() {
     }
     if (livekitRoomRef.current) {
       livekitRoomRef.current.localParticipant.setCameraEnabled(!next).catch(console.warn);
+    }
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.broadcastState(isMuted, next, isHandRaised);
     }
   };
 
@@ -398,7 +528,19 @@ export default function App() {
   };
 
   const handleToggleHandRaise = () => {
-    setIsHandRaised((prev) => !prev);
+    const next = !isHandRaised;
+    setIsHandRaised(next);
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "hand_raise", userId: currentUserId, isHandRaised: next })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+      } catch (e) {}
+    }
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.broadcastState(isMuted, isVideoOff, next);
+    }
   };
 
   // Reactions
@@ -413,12 +555,24 @@ export default function App() {
     setTimeout(() => {
       setReactions((prev) => prev.filter((r) => r.id !== newReaction.id));
     }, 2500);
+
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "reaction", reaction: newReaction })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: false }).catch(() => {});
+      } catch (e) {}
+    }
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.broadcastReaction(newReaction);
+    }
   };
 
   // Chat message send
   const handleSendMessage = async (text: string) => {
     const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       senderId: currentUserId,
       senderName: userName,
       text,
@@ -426,12 +580,29 @@ export default function App() {
     };
     setChatMessages((prev) => [...prev, newMsg]);
 
-    // Send to backend
+    // Broadcast in real-time over LiveKit Data Channel if active
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "chat", message: newMsg })
+        );
+        await livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true });
+      } catch (e) {
+        console.warn("DataChannel chat notice:", e);
+      }
+    }
+
+    // Broadcast in real-time over P2P data channels
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.broadcastChat(newMsg);
+    }
+
+    // Also persist to backend if running fullstack Express
     fetch(`/api/rooms/${roomId}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message: newMsg }),
-    }).catch(console.warn);
+    }).catch(() => {});
   };
 
   // Add sample conversation utterance
@@ -459,12 +630,16 @@ export default function App() {
 
   const handleJoinMeeting = (name: string, room: string, role: "host" | "speaker" | "attendee") => {
     const cleanName = name.trim() || "Guest";
-    const cleanRoom = room.trim().toLowerCase() || "corp-strategy-room";
+    const cleanRoom = room.trim().toLowerCase().replace(/\s+/g, "-") || "corp-strategy-room";
     setUserName(cleanName);
     setRoomId(cleanRoom);
     setUserRole(role);
     try {
       localStorage.setItem("omnimeet_username", cleanName);
+      // Synchronize browser address bar with exact room
+      const url = new URL(window.location.href);
+      url.searchParams.set("room", cleanRoom);
+      window.history.replaceState({}, "", url.toString());
     } catch (e) {}
     setInMeeting(true);
   };
@@ -474,10 +649,15 @@ export default function App() {
     setCallDuration(0);
     stopMediaStream(screenStream);
     setIsScreenSharing(false);
+    if (p2pManagerRef.current) {
+      p2pManagerRef.current.destroy();
+      p2pManagerRef.current = null;
+    }
+    setRemoteParticipants([]);
   };
 
   const handleCopyRoomLink = () => {
-    const cleanRoom = encodeURIComponent(roomId.trim().toLowerCase());
+    const cleanRoom = encodeURIComponent(roomId.trim().toLowerCase().replace(/\s+/g, "-"));
     const inviteUrl = `${window.location.origin}${window.location.pathname}?room=${cleanRoom}`;
     navigator.clipboard.writeText(inviteUrl);
     setCopiedRoomCode(true);
@@ -556,23 +736,26 @@ export default function App() {
             <span>WebRTC DTLS/SRTP E2EE</span>
           </div>
 
-          {/* LiveKit SFU Status Indicator */}
-          {livekitStatus === "connected" && (
+          {/* Connection Status Indicator */}
+          {connectionMode === "p2p" ? (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Direct P2P Mesh {livekitStatus === "connected" ? "(Live)" : "(Ready)"}</span>
+            </div>
+          ) : livekitStatus === "connected" ? (
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>SFU: LiveKit Cloud Connected</span>
             </div>
-          )}
-          {livekitStatus === "connecting" && (
+          ) : livekitStatus === "connecting" ? (
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-medium">
               <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-              <span>SFU: Connecting to Cloud...</span>
+              <span>Connecting WebRTC...</span>
             </div>
-          )}
-          {(livekitStatus === "demo" || livekitStatus === "disconnected") && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-medium">
+          ) : (
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-medium">
               <Radio className="w-3 h-3 text-indigo-400" />
-              <span>SFU: LiveKit Cloud Linked</span>
+              <span>P2P Direct Mesh Active</span>
             </div>
           )}
         </div>
@@ -685,11 +868,11 @@ export default function App() {
                 </div>
               )}
               <div
-                className={`w-full flex-1 grid gap-3 ${
+                className={`w-full flex-1 min-h-0 grid gap-3 ${
                   allParticipants.length <= 1
                     ? "grid-cols-1"
                     : allParticipants.length === 2
-                    ? "grid-cols-1 md:grid-cols-2"
+                    ? "grid-cols-1 sm:grid-cols-2"
                     : allParticipants.length <= 4
                     ? "grid-cols-2"
                     : "grid-cols-2 md:grid-cols-3"
