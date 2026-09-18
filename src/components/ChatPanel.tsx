@@ -36,7 +36,7 @@ export const ChatPanel: React.FC<Props> = ({
       {/* Header */}
       <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-600/20 text-indigo-400">
+          <div className="p-1.5 rounded-lg bg-red-600/20 text-red-400">
             <MessageSquare className="w-4 h-4" />
           </div>
           <div>
@@ -89,7 +89,7 @@ export const ChatPanel: React.FC<Props> = ({
                 <div
                   className={`px-3 py-2 rounded-2xl max-w-[85%] break-words leading-relaxed shadow-sm ${
                     isMe
-                      ? "bg-indigo-600 text-white rounded-tr-none"
+                      ? "bg-[#E10600] text-white rounded-tr-none"
                       : "bg-slate-800 border border-slate-700/60 text-slate-200 rounded-tl-none"
                   }`}
                 >
@@ -122,12 +122,12 @@ export const ChatPanel: React.FC<Props> = ({
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder="Send a message to everyone..."
-          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+          className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/40"
         />
         <button
           type="submit"
           disabled={!inputText.trim()}
-          className="p-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl disabled:opacity-40 transition-colors shadow-md"
+          className="p-2 bg-[#E10600] hover:bg-red-600 text-white rounded-xl disabled:opacity-40 transition-colors shadow-md shadow-red-600/30"
         >
           <Send className="w-4 h-4" />
         </button>

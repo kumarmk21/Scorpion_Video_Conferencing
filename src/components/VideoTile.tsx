@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, VideoOff, Hand, Pin, Shield, Wifi, Monitor } from "lucide-react";
-import { Participant, VirtualBackground } from "../types";
+import { Participant, VirtualBackground, LiveKitStats } from "../types";
+import { NetworkSparkline } from "./NetworkSparkline";
 
 interface Props {
   participant: Participant;
   isLocal?: boolean;
   isSpotlight?: boolean;
   virtualBg?: VirtualBackground;
+  networkStats?: LiveKitStats;
   onPin?: () => void;
   onToggleSpotlight?: () => void;
 }
@@ -16,6 +18,7 @@ export const VideoTile: React.FC<Props> = ({
   isLocal,
   isSpotlight,
   virtualBg = "none",
+  networkStats,
   onPin,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -60,7 +63,7 @@ export const VideoTile: React.FC<Props> = ({
         participant.isSpeaking
           ? "border-emerald-500 shadow-emerald-500/20 shadow-xl ring-2 ring-emerald-500/40"
           : isSpotlight
-          ? "border-indigo-500/80 shadow-indigo-500/20"
+          ? "border-red-500/80 shadow-red-500/20"
           : "border-slate-800/80 hover:border-slate-700"
       }`}
     >
@@ -111,7 +114,7 @@ export const VideoTile: React.FC<Props> = ({
             style={getFilterStyle()}
           />
           {isLocal && virtualBg === "blur" && (
-            <div className="absolute inset-0 pointer-events-none backdrop-blur-md opacity-30 bg-indigo-950/20" />
+            <div className="absolute inset-0 pointer-events-none backdrop-blur-md opacity-30 bg-red-950/20" />
           )}
         </div>
       ) : (
@@ -138,9 +141,20 @@ export const VideoTile: React.FC<Props> = ({
         </div>
       )}
 
+      {/* LiveKit Real-Time Bitrate & Latency Sparkline for Local Participant */}
+      {isLocal && networkStats && (
+        <div
+          className={`absolute z-30 top-3 ${
+            participant.isScreenSharing ? "left-28" : "left-3"
+          }`}
+        >
+          <NetworkSparkline stats={networkStats} />
+        </div>
+      )}
+
       {/* Screen share indicator */}
       {participant.isScreenSharing && (
-        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 bg-indigo-600/90 backdrop-blur-md rounded-lg text-[11px] font-semibold text-white shadow-md">
+        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 bg-[#E10600]/90 backdrop-blur-md rounded-lg text-[11px] font-semibold text-white shadow-md shadow-red-950/40">
           <Monitor className="w-3.5 h-3.5 animate-pulse" />
           <span>Presenting</span>
         </div>
@@ -207,7 +221,7 @@ export const VideoTile: React.FC<Props> = ({
             {participant.name} {isLocal && "(You)"}
           </span>
           {participant.role === "host" && (
-            <span className="flex items-center gap-0.5 text-[10px] bg-indigo-500/30 text-indigo-300 font-semibold px-1.5 py-0.2 rounded">
+            <span className="flex items-center gap-0.5 text-[10px] bg-red-500/30 text-red-300 font-semibold px-1.5 py-0.2 rounded">
               <Shield className="w-2.5 h-2.5" />
               Host
             </span>
@@ -215,9 +229,21 @@ export const VideoTile: React.FC<Props> = ({
         </div>
 
         {/* Network & resolution badge */}
-        <div className="hidden sm:flex items-center gap-1 bg-slate-950/75 backdrop-blur-md px-2 py-1 rounded-lg border border-slate-800/80 text-[10px] text-slate-400 shadow-md font-mono">
+        <div className="hidden sm:flex items-center gap-1.5 bg-slate-950/75 backdrop-blur-md px-2 py-1 rounded-lg border border-slate-800/80 text-[10px] text-slate-300 shadow-md font-mono">
           <Wifi className="w-3 h-3 text-emerald-400" />
-          <span>HD</span>
+          {isLocal && networkStats ? (
+            <>
+              <span>{networkStats.currentRtt}ms</span>
+              <span className="text-slate-600">·</span>
+              <span>
+                {networkStats.currentBitrate >= 1000
+                  ? `${(networkStats.currentBitrate / 1000).toFixed(1)}M`
+                  : `${networkStats.currentBitrate}k`}
+              </span>
+            </>
+          ) : (
+            <span>HD</span>
+          )}
         </div>
       </div>
     </div>

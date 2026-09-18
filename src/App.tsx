@@ -21,6 +21,8 @@ import { AICopilotPanel } from "./components/AICopilotPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { ParticipantsPanel } from "./components/ParticipantsPanel";
 import { ServerArchitectureModal } from "./components/ServerArchitectureModal";
+import { useLiveKitStats } from "./utils/useLiveKitStats";
+import { ScopMeetLogo } from "./components/ScopMeetLogo";
 import {
   ShieldCheck,
   Copy,
@@ -43,7 +45,7 @@ export default function App() {
   const [currentUserId] = useState(() => `user-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`);
   const [userName, setUserName] = useState(() => {
     if (typeof window !== "undefined") {
-      return localStorage.getItem("omnimeet_username") || "Alex Morgan";
+      return localStorage.getItem("scopmeet_username") || localStorage.getItem("omnimeet_username") || "Alex Morgan";
     }
     return "Alex Morgan";
   });
@@ -70,6 +72,7 @@ export default function App() {
   // Connection & WebRTC Mesh / SFU State
   const [connectionMode, setConnectionMode] = useState<"sfu" | "p2p">("sfu");
   const livekitRoomRef = useRef<Room | null>(null);
+  const [activeLivekitRoom, setActiveLivekitRoom] = useState<Room | null>(null);
   const p2pManagerRef = useRef<P2PConferenceManager | null>(null);
   const [livekitStatus, setLivekitStatus] = useState<"disconnected" | "connecting" | "connected" | "demo">("disconnected");
   const [livekitUrl, setLivekitUrl] = useState<string>("wss://omnimeet-gm23xe8u.livekit.cloud");
@@ -83,6 +86,14 @@ export default function App() {
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [virtualBg, setVirtualBg] = useState<VirtualBackground>("none");
+
+  // Live real-time LiveKit Bitrate & Latency (RTT) stats for local video tile
+  const livekitStats = useLiveKitStats({
+    room: activeLivekitRoom || livekitRoomRef.current,
+    isActive: inMeeting,
+    isVideoOff,
+    isMuted,
+  });
   const [availableDevices, setAvailableDevices] = useState<{
     audioInputs: MediaDeviceInfo[];
     videoInputs: MediaDeviceInfo[];
@@ -170,6 +181,7 @@ export default function App() {
           const room = createLiveKitRoom();
           activeRoom = room;
           livekitRoomRef.current = room;
+          setActiveLivekitRoom(room);
 
           // Helper to rebuild participant state from LiveKit RemoteParticipant
           const syncRemoteParticipant = (participant: RemoteParticipant) => {
@@ -344,7 +356,7 @@ export default function App() {
 
     const startP2P = () => {
       if (!isSubscribed) return;
-      console.log("[OmniMeet] Activating direct P2P WebRTC mesh...");
+      console.log("[ScopMeet] Activating direct P2P WebRTC mesh...");
       setConnectionMode("p2p");
       setLivekitStatus("connecting");
 
@@ -361,7 +373,7 @@ export default function App() {
         localStream,
         {
           onRemoteStream: (peerId, name, role, stream) => {
-            console.log("[OmniMeet] Remote stream connected from:", name, peerId);
+            console.log("[ScopMeet] Remote stream connected from:", name, peerId);
             setRemoteParticipants((prev) => {
               const existingIdx = prev.findIndex((p) => p.id === peerId);
               const updated: Participant = {
@@ -387,7 +399,7 @@ export default function App() {
             });
           },
           onRemoteLeave: (peerId) => {
-            console.log("[OmniMeet] Remote peer left:", peerId);
+            console.log("[ScopMeet] Remote peer left:", peerId);
             setRemoteParticipants((prev) => prev.filter((p) => p.id !== peerId));
           },
           onRemoteStateChange: (peerId, isMuted, isVideoOff, isHandRaised) => {
@@ -456,6 +468,7 @@ export default function App() {
       if (activeRoom) {
         activeRoom.disconnect();
         livekitRoomRef.current = null;
+        setActiveLivekitRoom(null);
       }
       if (p2pManagerRef.current) {
         p2pManagerRef.current.destroy();
@@ -645,6 +658,7 @@ export default function App() {
     setRoomId(cleanRoom);
     setUserRole(role);
     try {
+      localStorage.setItem("scopmeet_username", cleanName);
       localStorage.setItem("omnimeet_username", cleanName);
       // Synchronize browser address bar with exact room
       const url = new URL(window.location.href);
@@ -685,7 +699,7 @@ export default function App() {
     id: currentUserId,
     name: userName,
     role: userRole,
-    avatarColor: "#6366f1",
+    avatarColor: "#E10600",
     isMuted,
     isVideoOff,
     isHandRaised,
@@ -725,13 +739,17 @@ export default function App() {
 
   // Active Meeting Room Layout
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden select-none font-sans">
+    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex flex-col overflow-hidden select-none font-sans selection:bg-[#E10600] selection:text-white">
       {/* Top Meeting Header */}
       <header className="h-14 px-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 flex items-center justify-between z-20">
-        {/* Left: Meeting Title & Encrypted Badge */}
+        {/* Left: ScopMeet Branding, Meeting Title & Encrypted Badge */}
         <div className="flex items-center gap-3">
+          <ScopMeetLogo size="sm" showWordmark={true} />
+          
+          <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+
           <div className="font-semibold text-sm text-white flex items-center gap-2">
-            <span className="truncate max-w-[200px] md:max-w-xs">{roomId}</span>
+            <span className="truncate max-w-[180px] md:max-w-xs">{roomId}</span>
             <button
               onClick={handleCopyRoomLink}
               className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-md transition-colors"
@@ -763,8 +781,8 @@ export default function App() {
               <span>Connecting WebRTC...</span>
             </div>
           ) : (
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[11px] font-medium">
-              <Radio className="w-3 h-3 text-indigo-400" />
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-300 text-[11px] font-medium">
+              <Radio className="w-3 h-3 text-red-400" />
               <span>P2P Direct Mesh Active</span>
             </div>
           )}
@@ -772,7 +790,7 @@ export default function App() {
 
         {/* Center: Meeting Duration Clock */}
         <div className="flex items-center gap-2 px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-slate-300">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
           <span>{formatDuration(callDuration)}</span>
         </div>
 
@@ -780,10 +798,10 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsServerGuideOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/50 border border-indigo-800/60 rounded-lg text-xs text-indigo-300 font-medium transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-red-950/40 hover:bg-red-900/50 border border-red-800/60 rounded-lg text-xs text-red-300 font-medium transition-colors"
             title="Video Server Architecture Guide & Sizing"
           >
-            <Server className="w-3.5 h-3.5 text-indigo-400" />
+            <Server className="w-3.5 h-3.5 text-red-400" />
             <span className="hidden md:inline">Server Guide</span>
           </button>
         </div>
@@ -810,13 +828,14 @@ export default function App() {
           {isScreenSharing ? (
             <div className="w-full h-full flex flex-col gap-3">
               {/* Main Presentation Screen */}
-              <div className="flex-1 rounded-2xl overflow-hidden bg-slate-900 border border-indigo-500/50 shadow-2xl relative">
+              <div className="flex-1 rounded-2xl overflow-hidden bg-slate-900 border border-red-500/50 shadow-2xl relative">
                 <VideoTile
                   participant={localParticipant}
                   isLocal={true}
                   virtualBg="none"
+                  networkStats={livekitStats}
                 />
-                <div className="absolute top-4 left-4 bg-indigo-600/90 text-white text-xs px-3 py-1 rounded-lg backdrop-blur-md flex items-center gap-1.5 font-semibold">
+                <div className="absolute top-4 left-4 bg-[#E10600]/90 text-white text-xs px-3 py-1 rounded-lg backdrop-blur-md flex items-center gap-1.5 font-semibold shadow-lg shadow-red-950/50">
                   <Monitor className="w-4 h-4 animate-pulse" />
                   <span>You are sharing your screen</span>
                 </div>
@@ -841,9 +860,10 @@ export default function App() {
                     allParticipants.find((p) => p.isSpeaking) ||
                     localParticipant
                   }
-                  isLocal={spotlightId === currentUserId}
+                  isLocal={(spotlightId || localParticipant.id) === currentUserId}
                   isSpotlight={true}
                   virtualBg={virtualBg}
+                  networkStats={(spotlightId || localParticipant.id) === currentUserId ? livekitStats : undefined}
                 />
               </div>
               <div className="w-full md:w-56 flex md:flex-col gap-3 overflow-auto">
@@ -853,6 +873,9 @@ export default function App() {
                     <div key={p.id} className="h-32 w-48 md:w-full shrink-0">
                       <VideoTile
                         participant={p}
+                        isLocal={p.id === currentUserId}
+                        virtualBg={p.id === currentUserId ? virtualBg : "none"}
+                        networkStats={p.id === currentUserId ? livekitStats : undefined}
                         onPin={() => setSpotlightId(p.id)}
                       />
                     </div>
@@ -863,14 +886,14 @@ export default function App() {
             /* Grid View Mode */
             <div className="w-full h-full flex flex-col gap-3">
               {allParticipants.length === 1 && (
-                <div className="flex items-center justify-between px-4 py-2 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-xs text-indigo-200">
+                <div className="flex items-center justify-between px-4 py-2 bg-red-950/30 border border-red-500/30 rounded-xl text-xs text-red-200">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                     <span>You are the only person in this room. Share your link or room code <strong>{roomId}</strong> for others to join!</span>
                   </div>
                   <button
                     onClick={handleCopyRoomLink}
-                    className="flex items-center gap-1.5 px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-all shadow-sm"
+                    className="flex items-center gap-1.5 px-3 py-1 bg-[#E10600] hover:bg-red-600 text-white rounded-lg font-medium transition-all shadow-md shadow-red-600/30"
                   >
                     {copiedRoomCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                     <span>{copiedRoomCode ? "Copied Link!" : "Copy Invite Link"}</span>
@@ -894,6 +917,7 @@ export default function App() {
                     participant={p}
                     isLocal={p.id === currentUserId}
                     virtualBg={p.id === currentUserId ? virtualBg : "none"}
+                    networkStats={p.id === currentUserId ? livekitStats : undefined}
                     onPin={() => {
                       setSpotlightId(p.id);
                       setViewMode("spotlight");

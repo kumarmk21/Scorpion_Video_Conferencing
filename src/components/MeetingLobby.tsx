@@ -14,6 +14,7 @@ import {
   Users
 } from "lucide-react";
 import { VirtualBackground } from "../types";
+import { ScopMeetLogo } from "./ScopMeetLogo";
 
 interface Props {
   localStream: MediaStream | null;
@@ -47,7 +48,7 @@ export const MeetingLobby: React.FC<Props> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [name, setName] = useState(() => {
-    return localStorage.getItem("omnimeet_username") || "";
+    return localStorage.getItem("scopmeet_username") || localStorage.getItem("omnimeet_username") || "";
   });
   const [roomId, setRoomId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -72,6 +73,7 @@ export const MeetingLobby: React.FC<Props> = ({
 
   useEffect(() => {
     if (name) {
+      localStorage.setItem("scopmeet_username", name);
       localStorage.setItem("omnimeet_username", name);
     }
   }, [name]);
@@ -103,30 +105,25 @@ export const MeetingLobby: React.FC<Props> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between selection:bg-[#E10600] selection:text-white">
       {/* Top Header */}
       <header className="px-6 py-4 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/25">
-            <Video className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-              OmniMeet
-              <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full font-mono font-medium">
-                Enterprise
-              </span>
-            </h1>
-            <p className="text-xs text-slate-400">Secure WebRTC Conferencing & Gemini AI Intelligence</p>
+          <ScopMeetLogo size="md" />
+          <div className="hidden sm:block border-l border-slate-800 pl-3">
+            <span className="text-xs px-2 py-0.5 bg-red-600/20 text-red-300 border border-red-500/30 rounded-full font-mono font-medium">
+              Enterprise
+            </span>
+            <p className="text-[11px] text-slate-400 mt-0.5">WebRTC Multi-stream & Gemini AI Intelligence</p>
           </div>
         </div>
 
         {/* Server Guide Trigger Button */}
         <button
           onClick={onOpenServerGuide}
-          className="flex items-center gap-2 px-3.5 py-2 bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-700/50 rounded-xl text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition-all shadow-md"
+          className="flex items-center gap-2 px-3.5 py-2 bg-red-950/40 hover:bg-red-900/50 border border-red-700/50 rounded-xl text-xs font-semibold text-red-300 hover:text-red-200 transition-all shadow-md"
         >
-          <Server className="w-4 h-4 text-indigo-400" />
+          <Server className="w-4 h-4 text-red-400" />
           <span className="hidden sm:inline">Server & SFU Architecture Guide</span>
           <span className="sm:hidden">Server Guide</span>
         </button>
@@ -216,7 +213,7 @@ export const MeetingLobby: React.FC<Props> = ({
                   onClick={() => onChangeVirtualBg(bg.id as VirtualBackground)}
                   className={`py-1.5 px-2 rounded-lg border font-medium text-center transition-all ${
                     virtualBg === bg.id
-                      ? "bg-indigo-600 border-indigo-500 text-white"
+                      ? "bg-[#E10600] border-red-500 text-white shadow-md shadow-red-950/40"
                       : "bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-800"
                   }`}
                 >
@@ -229,11 +226,16 @@ export const MeetingLobby: React.FC<Props> = ({
 
         {/* Right Column: Join Form & Organisation Room Info */}
         <div className="w-full lg:w-1/2 max-w-md">
-          <div className="p-6 md:p-8 bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl space-y-6">
+          <div className="p-6 md:p-8 bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-xl space-y-5">
+            {/* Prominent Scorpion / ScopMeet Brand Card */}
+            <div className="flex justify-center">
+              <ScopMeetLogo variant="badge" className="w-full max-w-[280px]" />
+            </div>
+
             <div>
-              <h2 className="text-xl font-bold text-white">Join Meeting</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Configure your meeting session, team identity, and join immediately.
+              <h2 className="text-lg font-bold text-white">Join Meeting Session</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Configure your display identity and jump straight into the conference.
               </p>
             </div>
 
@@ -265,7 +267,7 @@ export const MeetingLobby: React.FC<Props> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Sarah Connor"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/40 transition-colors"
                 />
               </div>
 
@@ -278,7 +280,7 @@ export const MeetingLobby: React.FC<Props> = ({
                   value={roomId}
                   onChange={(e) => setRoomId(e.target.value)}
                   placeholder="e.g. q3-architecture-review"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white font-mono placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/40 transition-colors"
                 />
               </div>
 
@@ -297,7 +299,7 @@ export const MeetingLobby: React.FC<Props> = ({
                       onClick={() => setRole(r.id as any)}
                       className={`py-2 px-3 rounded-xl border text-center font-medium capitalize transition-all ${
                         role === r.id
-                          ? "bg-indigo-600/30 border-indigo-500 text-indigo-200"
+                          ? "bg-red-600/20 border-red-500 text-red-200 shadow-sm"
                           : "bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200"
                       }`}
                     >
@@ -317,7 +319,7 @@ export const MeetingLobby: React.FC<Props> = ({
               {/* Action Button */}
               <button
                 type="submit"
-                className="w-full mt-2 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/30 active:scale-[0.99]"
+                className="w-full mt-2 py-3 px-4 bg-[#E10600] hover:bg-red-600 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/30 active:scale-[0.99]"
               >
                 <span>Enter Conference Room</span>
                 <ChevronRight className="w-4 h-4" />
@@ -325,8 +327,8 @@ export const MeetingLobby: React.FC<Props> = ({
             </form>
 
             {/* AI Capabilities Notice */}
-            <div className="pt-4 border-t border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
-              <Sparkles className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+            <div className="pt-3 border-t border-slate-800/80 flex items-start gap-2.5 text-[11px] text-slate-400">
+              <Sparkles className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <span>
                 Equipped with <strong>Gemini 3.8 Flash</strong> for automated meeting minutes, live action items, and in-call intelligence.
               </span>
@@ -337,7 +339,7 @@ export const MeetingLobby: React.FC<Props> = ({
 
       {/* Footer */}
       <footer className="px-6 py-4 border-t border-slate-900 bg-slate-950 text-center text-xs text-slate-500">
-        OmniMeet Enterprise Video Conferencing • WebRTC Multi-stream • Gemini AI Assistant
+        ScopMeet Video Conferencing • WebRTC Multi-stream • Gemini AI Assistant
       </footer>
     </div>
   );

@@ -56,3 +56,21 @@ export interface FloatingReaction {
 export type ViewMode = "grid" | "spotlight" | "presentation";
 
 export type VirtualBackground = "none" | "blur" | "office" | "minimal" | "studio";
+
+export interface NetworkStatPoint {
+  time: string;
+  bitrate: number; // in kbps
+  rtt: number; // in ms
+  fps?: number;
+  packetsLost?: number;
+}
+
+export interface LiveKitStats {
+  currentBitrate: number; // kbps
+  currentRtt: number; // ms
+  currentFps?: number;
+  packetsLost?: number;
+  connectionType?: string;
+  quality: "excellent" | "good" | "poor";
+  history: NetworkStatPoint[];
+}

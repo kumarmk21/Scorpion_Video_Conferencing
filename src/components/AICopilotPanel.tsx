@@ -132,13 +132,13 @@ export const AICopilotPanel: React.FC<Props> = ({
       {/* Header */}
       <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md">
+          <div className="p-1.5 rounded-lg bg-gradient-to-tr from-red-600 to-rose-600 text-white shadow-md shadow-red-900/30">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-              Gemini Meeting Copilot
-              <span className="text-[10px] px-1.5 py-0.2 bg-purple-500/20 text-purple-300 rounded font-mono font-medium">
+              ScopMeet AI Copilot
+              <span className="text-[10px] px-1.5 py-0.2 bg-red-500/20 text-red-300 rounded font-mono font-medium">
                 Live AI
               </span>
             </h3>
@@ -168,7 +168,7 @@ export const AICopilotPanel: React.FC<Props> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex flex-col items-center gap-1 py-2.5 transition-colors border-b-2 font-medium ${
                 activeTab === tab.id
-                  ? "border-purple-500 text-purple-400 bg-purple-500/5"
+                  ? "border-red-500 text-red-400 bg-red-500/5"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -191,7 +191,7 @@ export const AICopilotPanel: React.FC<Props> = ({
           </div>
           <button
             onClick={onAddSimulatedTranscript}
-            className="flex items-center gap-1 px-2 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 rounded-lg text-[11px] font-medium transition-colors"
+            className="flex items-center gap-1 px-2 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-200 rounded-lg text-[11px] font-medium transition-colors"
             title="Simulate conversation utterances for AI demo"
           >
             <PlusCircle className="w-3 h-3" />
@@ -207,7 +207,7 @@ export const AICopilotPanel: React.FC<Props> = ({
               <button
                 onClick={handleGenerateSummary}
                 disabled={loading || transcript.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg font-medium shadow-md transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white rounded-lg font-medium shadow-md transition-all disabled:opacity-50"
               >
                 {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                 <span>{summaryData ? "Regenerate" : "Synthesize with Gemini"}</span>
@@ -216,10 +216,10 @@ export const AICopilotPanel: React.FC<Props> = ({
 
             {summaryData ? (
               <div className="space-y-3 animate-in fade-in duration-200">
-                <div className="p-3 bg-purple-950/20 border border-purple-800/40 rounded-xl space-y-2">
+                <div className="p-3 bg-red-950/20 border border-red-800/40 rounded-xl space-y-2">
                   <p className="text-slate-200 leading-relaxed">{summaryData.summary}</p>
 
-                  <div className="flex items-center gap-3 pt-2 border-t border-purple-900/30 text-[11px] text-slate-400">
+                  <div className="flex items-center gap-3 pt-2 border-t border-red-900/30 text-[11px] text-slate-400">
                     <span className="flex items-center gap-1">
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
                       {summaryData.sentiment}
@@ -249,7 +249,7 @@ export const AICopilotPanel: React.FC<Props> = ({
                     {summaryData.topics.map((tag, i) => (
                       <span
                         key={i}
-                        className="flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-purple-300 border border-purple-500/20 rounded-full text-[11px]"
+                        className="flex items-center gap-1 px-2 py-0.5 bg-slate-800 text-red-300 border border-red-500/20 rounded-full text-[11px]"
                       >
                         <Tag className="w-2.5 h-2.5" />
                         {tag}
@@ -260,7 +260,7 @@ export const AICopilotPanel: React.FC<Props> = ({
               </div>
             ) : (
               <div className="p-6 text-center text-slate-400 border border-dashed border-slate-800 rounded-xl space-y-2">
-                <Sparkles className="w-6 h-6 text-purple-400 mx-auto opacity-80" />
+                <Sparkles className="w-6 h-6 text-red-400 mx-auto opacity-80" />
                 <p>Click "Synthesize with Gemini" to extract key outcomes and insights from this call.</p>
               </div>
             )}
@@ -275,7 +275,7 @@ export const AICopilotPanel: React.FC<Props> = ({
               <button
                 onClick={handleGenerateSummary}
                 disabled={loading || transcript.length === 0}
-                className="flex items-center gap-1 px-2.5 py-1 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-lg font-medium"
+                className="flex items-center gap-1 px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded-lg font-medium"
               >
                 <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
                 <span>Extract</span>
@@ -296,7 +296,7 @@ export const AICopilotPanel: React.FC<Props> = ({
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                      <span className="text-purple-400 font-semibold">Assignee:</span>
+                      <span className="text-red-400 font-semibold">Assignee:</span>
                       <span>{item.assignee}</span>
                     </div>
                   </div>
@@ -320,19 +320,19 @@ export const AICopilotPanel: React.FC<Props> = ({
                   key={i}
                   className={`p-3 rounded-xl leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-indigo-600 text-white ml-6"
+                      ? "bg-[#E10600] text-white ml-6 shadow-md shadow-red-950/40"
                       : "bg-slate-800/80 border border-slate-700/60 text-slate-200 mr-4"
                   }`}
                 >
                   <div className="text-[10px] font-semibold text-slate-400 mb-1">
-                    {msg.role === "user" ? "You" : "OmniMeet AI"}
+                    {msg.role === "user" ? "You" : "ScopMeet AI"}
                   </div>
                   <p>{msg.text}</p>
                 </div>
               ))}
               {loading && (
                 <div className="p-3 bg-slate-800/40 rounded-xl text-slate-400 italic flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+                  <Sparkles className="w-3.5 h-3.5 text-red-400 animate-spin" />
                   <span>Gemini is thinking...</span>
                 </div>
               )}
@@ -345,12 +345,12 @@ export const AICopilotPanel: React.FC<Props> = ({
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 placeholder="Ask about the meeting..."
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500"
+                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/40"
               />
               <button
                 type="submit"
                 disabled={!question.trim() || loading}
-                className="p-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl disabled:opacity-50 transition-colors"
+                className="p-2 bg-[#E10600] hover:bg-red-600 text-white rounded-xl disabled:opacity-50 transition-colors shadow-md shadow-red-600/30"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
@@ -366,7 +366,7 @@ export const AICopilotPanel: React.FC<Props> = ({
               <button
                 onClick={handleGenerateMOM}
                 disabled={loading || transcript.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium shadow-md transition-all disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-1 bg-[#E10600] hover:bg-red-600 text-white rounded-lg font-medium shadow-md shadow-red-600/30 transition-all disabled:opacity-50"
               >
                 <FileText className="w-3.5 h-3.5" />
                 <span>Generate MOM</span>

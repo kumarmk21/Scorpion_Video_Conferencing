@@ -348,7 +348,7 @@ app.post("/api/gemini/copilot", async (req, res) => {
       ? `Meeting Transcript:\n` + transcript.map((t: { speaker: string; text: string }) => `${t.speaker}: ${t.text}`).join("\n")
       : `Meeting context: ${roomContext || "General organisation meeting"}`;
 
-    const prompt = `You are OmniMeet AI Copilot, an intelligent in-meeting assistant for video conferences.
+    const prompt = `You are ScopMeet AI Copilot, an intelligent in-meeting assistant for video conferences.
 Answer the user's question concisely, directly, and factually based on the meeting transcript and context.
 ${transcriptContext}
 

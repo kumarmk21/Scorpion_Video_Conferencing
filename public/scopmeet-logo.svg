@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 280" width="100%" height="100%">
+  <rect width="480" height="280" rx="24" fill="#E10600"/>
+  <g transform="translate(40, 30)">
+    <!-- Aerodynamic Oval with S Cutout -->
+    <path d="M 60,95 C 40,95 20,80 30,55 C 42,25 90,10 180,6 C 270,2 340,12 365,35 C 380,48 375,65 350,75 C 320,88 280,78 260,78 C 240,78 220,92 200,95 C 160,101 100,95 60,95 Z" fill="#FFFFFF"/>
+    <!-- Center S cutout forming the Scorpion emblem -->
+    <path d="M 120,48 C 145,46 195,44 240,42 C 265,41 290,46 270,55 C 245,66 200,68 175,70 C 145,72 110,68 120,48 Z" fill="#E10600"/>
+    <path d="M 165,32 C 205,30 250,28 290,32 C 305,33 295,39 270,41 C 240,43 195,45 160,43 C 145,42 145,33 165,32 Z" fill="#E10600"/>
+    <path d="M 95,68 C 120,68 150,66 185,64 C 170,74 140,78 105,78 C 85,78 80,70 95,68 Z" fill="#E10600"/>
+    
+    <!-- Wordmark text stylized as ScopMeet in pure white -->
+    <text x="200" y="195" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Brush Script MT', cursive, sans-serif" font-weight="900" font-style="italic" font-size="64" letter-spacing="1">
+      ScopMeet
+    </text>
+    <circle cx="360" cy="155" r="7" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+    <text x="360" y="158.5" text-anchor="middle" fill="#FFFFFF" font-family="sans-serif" font-weight="bold" font-size="8">R</text>
+  </g>
+</svg>

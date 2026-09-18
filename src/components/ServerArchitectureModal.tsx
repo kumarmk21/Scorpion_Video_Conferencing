@@ -43,13 +43,13 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400">
+            <div className="p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400">
               <Server className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                 Video Conferencing Server Architecture Guide
-                <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded-full font-mono font-medium">
+                <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-300 rounded-full font-mono font-medium">
                   Enterprise Blueprint
                 </span>
               </h2>
@@ -81,7 +81,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all ${
                   activeTab === tab.id
-                    ? "border-indigo-500 text-indigo-400 bg-indigo-500/5"
+                    ? "border-red-500 text-red-400 bg-red-500/5"
                     : "border-transparent text-slate-400 hover:text-slate-200"
                 }`}
               >
@@ -96,7 +96,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
         <div className="p-6 overflow-y-auto space-y-6 flex-1 text-sm text-slate-300">
           {activeTab === "architecture" && (
             <div className="space-y-6">
-              <div className="p-4 bg-indigo-950/30 border border-indigo-800/40 rounded-xl">
+              <div className="p-4 bg-red-950/20 border border-red-800/40 rounded-xl">
                 <h3 className="font-semibold text-white text-base mb-1 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   Primary Verdict: Choose an SFU (Selective Forwarding Unit)
@@ -124,7 +124,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                 </div>
 
                 {/* SFU */}
-                <div className="p-4 bg-indigo-950/40 border-2 border-indigo-500/60 rounded-xl space-y-2 shadow-lg shadow-indigo-950/40">
+                <div className="p-4 bg-red-950/30 border-2 border-red-500/60 rounded-xl space-y-2 shadow-lg shadow-red-950/40">
                   <div className="flex items-center justify-between">
                     <h4 className="font-semibold text-white flex items-center gap-1.5">
                       2. SFU (Recommended)
@@ -134,7 +134,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                   <p className="text-xs text-slate-300">
                     Client sends 1 stream up. Server routes/duplicates packets to other participants without re-encoding.
                   </p>
-                  <div className="text-xs text-emerald-400 space-y-1 pt-2 border-t border-indigo-800/50">
+                  <div className="text-xs text-emerald-400 space-y-1 pt-2 border-t border-red-800/50">
                     <p>✅ Very low server CPU (no heavy video transcoding).</p>
                     <p>✅ Scales to 100s of participants with simulcast.</p>
                     <p>✅ Sub-200ms ultra-low latency.</p>
@@ -188,7 +188,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                     <p className="text-xs text-slate-400">
                       Ideal for internal standups, 1:1 calls, and small department meetings.
                     </p>
-                    <div className="text-xs text-indigo-300 font-mono pt-1">
+                    <div className="text-xs text-red-300 font-mono pt-1">
                       Specs: 2 to 4 vCPUs • 4 GB RAM • 1 Gbps NIC • Estimated Cost: ~$25 - $40 / month
                     </div>
                   </div>
@@ -199,16 +199,16 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                 </div>
 
                 {/* Tier 2 */}
-                <div className="p-4 bg-indigo-950/30 border border-indigo-500/40 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="p-4 bg-red-950/30 border border-red-500/40 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white">Mid-Market Organisation</span>
-                      <span className="text-xs px-2 py-0.5 bg-indigo-500/20 text-indigo-300 rounded font-mono">50 - 300 Concurrent Users</span>
+                      <span className="text-xs px-2 py-0.5 bg-red-500/20 text-red-300 rounded font-mono">50 - 300 Concurrent Users</span>
                     </div>
                     <p className="text-xs text-slate-400">
                       Simultaneous meetings with screen sharing and active speaker switching across multiple rooms.
                     </p>
-                    <div className="text-xs text-indigo-300 font-mono pt-1">
+                    <div className="text-xs text-red-300 font-mono pt-1">
                       Specs: 8 vCPUs • 16 GB RAM • 5-10 Gbps Enhanced Networking • Estimated Cost: ~$120 - $180 / month
                     </div>
                   </div>
@@ -228,7 +228,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                     <p className="text-xs text-slate-400">
                       Multi-node cluster fronted by Envoy load balancer, Redis room coordinator, and global Geo-DNS edge relays.
                     </p>
-                    <div className="text-xs text-indigo-300 font-mono pt-1">
+                    <div className="text-xs text-red-300 font-mono pt-1">
                       Specs: 3x c6i.2xlarge nodes + Redis + Coturn cluster • 10-25 Gbps NICs
                     </div>
                   </div>
@@ -260,7 +260,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                     max="100"
                     value={participantsCount}
                     onChange={(e) => setParticipantsCount(Number(e.target.value))}
-                    className="w-full accent-indigo-500"
+                    className="w-full accent-red-500"
                   />
                   <div className="flex justify-between text-[11px] text-slate-400">
                     <span>2 users</span>
@@ -274,7 +274,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                   <select
                     value={resolution}
                     onChange={(e) => setResolution(e.target.value as any)}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-red-500"
                   >
                     <option value="480p">480p SD (~600 Kbps)</option>
                     <option value="720p">720p HD (~1.5 Mbps - Recommended)</option>
@@ -308,10 +308,10 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                   <p className="text-[11px] text-slate-400">Total streams uploaded to SFU from {participantsCount} cameras.</p>
                 </div>
 
-                <div className="p-4 bg-indigo-950/30 border border-indigo-500/40 rounded-xl space-y-1">
-                  <span className="text-xs text-indigo-300">Outbound Media Egress (Server)</span>
-                  <div className="text-2xl font-bold text-indigo-400 font-mono">
-                    {outgoingServerTraffic.toFixed(1)} <span className="text-sm font-normal text-indigo-300">Mbps</span>
+                <div className="p-4 bg-red-950/30 border border-red-500/40 rounded-xl space-y-1">
+                  <span className="text-xs text-red-300">Outbound Media Egress (Server)</span>
+                  <div className="text-2xl font-bold text-red-400 font-mono">
+                    {outgoingServerTraffic.toFixed(1)} <span className="text-sm font-normal text-red-300">Mbps</span>
                   </div>
                   <p className="text-[11px] text-slate-400">
                     {simulcastEnabled ? "Optimized with thumbnail layer switching" : "Full uncompressed multi-stream forwarding"}
@@ -335,15 +335,15 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* LiveKit */}
-                <div className="p-4 bg-indigo-950/40 border-2 border-indigo-500 rounded-xl space-y-3">
+                <div className="p-4 bg-red-950/40 border-2 border-red-500 rounded-xl space-y-3">
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-white text-base">LiveKit</h4>
-                    <span className="text-xs px-2 py-0.5 bg-indigo-500/30 text-indigo-300 rounded font-medium">#1 Choice</span>
+                    <span className="text-xs px-2 py-0.5 bg-red-500/30 text-red-300 rounded font-medium">#1 Choice</span>
                   </div>
                   <p className="text-xs text-slate-300 leading-relaxed">
                     Open-source WebRTC SFU built in Go. Ultra fast, supports WebRTC, Simulcast, E2EE, screen sharing, and turnkey client SDKs for React, Flutter, iOS, and Android.
                   </p>
-                  <div className="pt-2 border-t border-indigo-800/50 text-xs text-slate-300 space-y-1 font-mono">
+                  <div className="pt-2 border-t border-red-800/50 text-xs text-slate-300 space-y-1 font-mono">
                     <div>• Self-hostable on Docker/K8s</div>
                     <div>• Built-in TURN & telemetry</div>
                     <div>• First-class AI audio plugin support</div>
@@ -394,7 +394,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
           </div>
           <button
             onClick={onClose}
-            className="px-5 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors shadow-lg shadow-indigo-600/30"
+            className="px-5 py-2 text-xs font-semibold bg-[#E10600] hover:bg-red-600 text-white rounded-lg transition-colors shadow-lg shadow-red-600/30"
           >
             Got it, Return to App
           </button>

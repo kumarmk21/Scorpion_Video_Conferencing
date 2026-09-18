@@ -83,16 +83,16 @@ export const MeetingControls: React.FC<Props> = ({
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-medium transition-all"
           title={`Switch to ${viewMode === "grid" ? "Spotlight View" : "Grid View"}`}
         >
-          <LayoutGrid className="w-4 h-4 text-indigo-400" />
+          <LayoutGrid className="w-4 h-4 text-red-400" />
           <span className="hidden sm:inline capitalize">{viewMode} View</span>
         </button>
 
         <button
           onClick={onOpenServerGuide}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-300 hover:text-indigo-200 border border-indigo-800/50 text-xs font-medium transition-all"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/50 text-red-300 hover:text-red-200 border border-red-800/50 text-xs font-medium transition-all"
           title="Open Video Server Architecture Blueprint"
         >
-          <Server className="w-4 h-4 text-indigo-400" />
+          <Server className="w-4 h-4 text-red-400" />
           <span className="hidden md:inline">Server Guide</span>
         </button>
       </div>
@@ -126,7 +126,7 @@ export const MeetingControls: React.FC<Props> = ({
             }`}
             title={isVideoOff ? "Start Camera" : "Stop Camera"}
           >
-            {isVideoOff ? <VideoOff className="w-4 h-4 text-rose-400" /> : <Video className="w-4 h-4 text-indigo-400" />}
+            {isVideoOff ? <VideoOff className="w-4 h-4 text-rose-400" /> : <Video className="w-4 h-4 text-red-400" />}
             <span className="hidden sm:inline">{isVideoOff ? "Start Video" : "Stop Video"}</span>
           </button>
 
@@ -158,7 +158,7 @@ export const MeetingControls: React.FC<Props> = ({
                     setShowBgMenu(false);
                   }}
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left transition-colors ${
-                    virtualBg === bg.id ? "bg-indigo-600 text-white font-medium" : "text-slate-300 hover:bg-slate-800"
+                    virtualBg === bg.id ? "bg-[#E10600] text-white font-medium" : "text-slate-300 hover:bg-slate-800"
                   }`}
                 >
                   <span>{bg.label}</span>
@@ -174,12 +174,12 @@ export const MeetingControls: React.FC<Props> = ({
           onClick={onToggleScreenShare}
           className={`p-3 md:px-4 rounded-xl flex items-center gap-2 font-medium text-xs transition-all shadow-md ${
             isScreenSharing
-              ? "bg-indigo-600 text-white ring-2 ring-indigo-400/50"
+              ? "bg-[#E10600] text-white ring-2 ring-red-400/50"
               : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
           }`}
           title={isScreenSharing ? "Stop Presenting" : "Share Screen"}
         >
-          {isScreenSharing ? <MonitorOff className="w-4 h-4 text-white" /> : <Monitor className="w-4 h-4 text-indigo-400" />}
+          {isScreenSharing ? <MonitorOff className="w-4 h-4 text-white" /> : <Monitor className="w-4 h-4 text-red-400" />}
           <span className="hidden md:inline">{isScreenSharing ? "Stop Sharing" : "Share Screen"}</span>
         </button>
 
@@ -243,14 +243,14 @@ export const MeetingControls: React.FC<Props> = ({
           onClick={() => onTogglePanel("ai")}
           className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all shadow-md ${
             activePanel === "ai"
-              ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-indigo-500/25 ring-2 ring-purple-400/40"
-              : "bg-slate-900/80 hover:bg-slate-800 text-purple-300 border border-purple-500/30 hover:border-purple-500/60"
+              ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-red-600/25 ring-2 ring-red-400/40"
+              : "bg-slate-900/80 hover:bg-slate-800 text-red-300 border border-red-500/30 hover:border-red-500/60"
           }`}
           title="Gemini AI Meeting Copilot & Minutes"
         >
-          <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+          <Sparkles className="w-4 h-4 text-red-400 animate-pulse" />
           <span className="hidden sm:inline">AI Copilot</span>
-          <span className="w-2 h-2 rounded-full bg-purple-400 ring-2 ring-purple-300/50 animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-red-400 ring-2 ring-red-300/50 animate-ping" />
         </button>
 
         {/* In-call Chat toggle */}
@@ -258,7 +258,7 @@ export const MeetingControls: React.FC<Props> = ({
           onClick={() => onTogglePanel("chat")}
           className={`relative p-2.5 rounded-xl text-xs font-medium transition-all ${
             activePanel === "chat"
-              ? "bg-indigo-600 text-white"
+              ? "bg-[#E10600] text-white shadow-md shadow-red-600/30"
               : "bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800"
           }`}
           title="In-call Chat"
@@ -276,7 +276,7 @@ export const MeetingControls: React.FC<Props> = ({
           onClick={() => onTogglePanel("participants")}
           className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all ${
             activePanel === "participants"
-              ? "bg-indigo-600 text-white"
+              ? "bg-[#E10600] text-white shadow-md shadow-red-600/30"
               : "bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800"
           }`}
           title="Participants Roster"

@@ -31,13 +31,13 @@ export const ParticipantsPanel: React.FC<Props> = ({
       {/* Header */}
       <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-indigo-600/20 text-indigo-400">
+          <div className="p-1.5 rounded-lg bg-red-600/20 text-red-400">
             <Users className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
               Participants
-              <span className="text-xs px-2 py-0.5 bg-slate-800 text-indigo-300 rounded-full font-semibold">
+              <span className="text-xs px-2 py-0.5 bg-slate-800 text-red-300 rounded-full font-semibold">
                 {participants.length}
               </span>
             </h3>
@@ -59,7 +59,7 @@ export const ParticipantsPanel: React.FC<Props> = ({
         </div>
         <button
           onClick={handleCopyLink}
-          className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 rounded-lg border border-indigo-500/30 transition-colors font-medium"
+          className="flex items-center gap-1 text-xs px-2.5 py-1.5 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg border border-red-500/30 transition-colors font-medium"
         >
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
           <span>{copied ? "Link Copied" : "Copy Link"}</span>
@@ -93,7 +93,7 @@ export const ParticipantsPanel: React.FC<Props> = ({
                     <span className="truncate max-w-[120px]">{p.name}</span>
                     {isMe && <span className="text-[10px] text-slate-400">(You)</span>}
                     {p.role === "host" && (
-                      <span className="flex items-center gap-0.5 px-1 py-0.2 bg-indigo-500/20 text-indigo-300 text-[10px] font-medium rounded">
+                      <span className="flex items-center gap-0.5 px-1 py-0.2 bg-red-500/20 text-red-300 text-[10px] font-medium rounded">
                         <Shield className="w-2.5 h-2.5" />
                         Host
                       </span>

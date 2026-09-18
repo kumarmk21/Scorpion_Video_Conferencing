@@ -1,6 +1,6 @@
 {
-  "name": "OmniMeet Video Conferencing",
-  "description": "Enterprise-grade video conferencing platform with active speaker spotlight, screen sharing, real-time collaboration, and Gemini-powered AI meeting intelligence.",
+  "name": "ScopMeet",
+  "description": "High-performance real-time video conferencing platform with active speaker spotlight, screen sharing, real-time collaboration, and Gemini-powered AI meeting intelligence.",
   "requestFramePermissions": [
     "camera",
     "microphone"
