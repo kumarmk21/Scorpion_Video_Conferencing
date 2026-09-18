@@ -117,14 +117,45 @@ export default function App() {
 
   // Remote participants list - starts completely empty so only REAL users appear
   const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>([]);
+  const [mediaPermissionStatus, setMediaPermissionStatus] = useState<"prompt" | "testing" | "granted" | "denied">("prompt");
 
-  // Initialize camera and mic stream
+  // Reusable camera and mic tester / permission requester
+  const handleTestMediaDevices = async () => {
+    setMediaPermissionStatus("testing");
+    try {
+      const stream = await requestUserMedia(!isVideoOff, !isMuted);
+      if (stream) {
+        setLocalStream(stream);
+        const hasVideo = stream.getVideoTracks().length > 0;
+        const hasAudio = stream.getAudioTracks().length > 0;
+        if (hasVideo || hasAudio) {
+          setMediaPermissionStatus("granted");
+        } else {
+          setMediaPermissionStatus("denied");
+        }
+      } else {
+        setMediaPermissionStatus("denied");
+      }
+      const devices = await getConnectedDevices();
+      setAvailableDevices(devices);
+    } catch (e) {
+      console.warn("Device testing notice:", e);
+      setMediaPermissionStatus("denied");
+    }
+  };
+
+  // Automatically test and prompt for camera/mic access when attendees/hosts open the lobby
   useEffect(() => {
     let mounted = true;
     async function initMedia() {
+      setMediaPermissionStatus("testing");
       const stream = await requestUserMedia(!isVideoOff, !isMuted);
-      if (mounted && stream) {
+      if (!mounted) return;
+      if (stream) {
         setLocalStream(stream);
+        setMediaPermissionStatus("granted");
+      } else {
+        setMediaPermissionStatus("prompt");
       }
       const devices = await getConnectedDevices();
       if (mounted) {
@@ -373,7 +404,9 @@ export default function App() {
         localStream,
         {
           onRemoteStream: (peerId, name, role, stream) => {
-            console.log("[ScopMeet] Remote stream connected from:", name, peerId);
+            console.log("[ScopMeet] Remote stream connected from:", name, peerId, "tracks:", stream.getTracks().length);
+            const hasVideo = stream.getVideoTracks().length > 0 && stream.getVideoTracks().some(t => t.enabled);
+            
             setRemoteParticipants((prev) => {
               const existingIdx = prev.findIndex((p) => p.id === peerId);
               const updated: Participant = {
@@ -381,11 +414,11 @@ export default function App() {
                 name: name || "Colleague",
                 role: role,
                 avatarColor: existingIdx >= 0 ? prev[existingIdx].avatarColor : "#10b981",
-                isMuted: false,
-                isVideoOff: false,
+                isMuted: stream.getAudioTracks().length === 0 || !stream.getAudioTracks().some(t => t.enabled),
+                isVideoOff: !hasVideo,
                 isSpeaking: false,
                 audioLevel: 0,
-                isHandRaised: false,
+                isHandRaised: existingIdx >= 0 ? prev[existingIdx].isHandRaised : false,
                 isScreenSharing: false,
                 stream: stream,
                 connectionQuality: "excellent",
@@ -397,6 +430,21 @@ export default function App() {
               }
               return [...prev, updated];
             });
+
+            // Listen for subsequent track additions on this stream
+            stream.onaddtrack = () => {
+              setRemoteParticipants((prev) =>
+                prev.map((p) =>
+                  p.id === peerId
+                    ? {
+                        ...p,
+                        isVideoOff: stream.getVideoTracks().length === 0 || !stream.getVideoTracks().some(t => t.enabled),
+                        isMuted: stream.getAudioTracks().length === 0 || !stream.getAudioTracks().some(t => t.enabled),
+                      }
+                    : p
+                )
+              );
+            };
           },
           onRemoteLeave: (peerId) => {
             console.log("[ScopMeet] Remote peer left:", peerId);
@@ -723,6 +771,8 @@ export default function App() {
           audioLevel={audioLevel}
           virtualBg={virtualBg}
           availableDevices={availableDevices}
+          mediaPermissionStatus={mediaPermissionStatus}
+          onTestMediaDevices={handleTestMediaDevices}
           onToggleMic={handleToggleMic}
           onToggleVideo={handleToggleVideo}
           onChangeVirtualBg={setVirtualBg}

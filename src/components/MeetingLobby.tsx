@@ -26,6 +26,8 @@ interface Props {
     audioInputs: MediaDeviceInfo[];
     videoInputs: MediaDeviceInfo[];
   };
+  mediaPermissionStatus: "prompt" | "testing" | "granted" | "denied";
+  onTestMediaDevices: () => Promise<void>;
   onToggleMic: () => void;
   onToggleVideo: () => void;
   onChangeVirtualBg: (bg: VirtualBackground) => void;
@@ -40,6 +42,8 @@ export const MeetingLobby: React.FC<Props> = ({
   audioLevel,
   virtualBg,
   availableDevices,
+  mediaPermissionStatus,
+  onTestMediaDevices,
   onToggleMic,
   onToggleVideo,
   onChangeVirtualBg,
@@ -47,6 +51,7 @@ export const MeetingLobby: React.FC<Props> = ({
   onOpenServerGuide,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isTestingDevices, setIsTestingDevices] = useState(false);
   const [name, setName] = useState(() => {
     return localStorage.getItem("scopmeet_username") || localStorage.getItem("omnimeet_username") || "";
   });
@@ -133,6 +138,72 @@ export const MeetingLobby: React.FC<Props> = ({
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12">
         {/* Left Column: Device Check & Camera Preview */}
         <div className="w-full lg:w-1/2 flex flex-col items-center">
+          {/* Automatic Hardware Permission & Diagnostic Banner */}
+          <div className="w-full max-w-md mb-3">
+            {mediaPermissionStatus === "prompt" && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between text-xs text-amber-200 shadow-sm animate-pulse">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>Camera & mic access required for interactive calls</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsTestingDevices(true);
+                    await onTestMediaDevices();
+                    setIsTestingDevices(false);
+                  }}
+                  disabled={isTestingDevices}
+                  className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs transition-colors shrink-0 cursor-pointer"
+                >
+                  {isTestingDevices ? "Testing..." : "Allow Access"}
+                </button>
+              </div>
+            )}
+
+            {mediaPermissionStatus === "testing" && (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-center gap-2 text-xs text-blue-200">
+                <Zap className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+                <span>Testing camera and microphone hardware devices...</span>
+              </div>
+            )}
+
+            {mediaPermissionStatus === "granted" && (
+              <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between text-xs text-emerald-300">
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Hardware verified: Camera & Microphone active</span>
+                </div>
+                <span className="text-[10px] text-emerald-400/80 font-mono">LiveKit SFU Ready</span>
+              </div>
+            )}
+
+            {mediaPermissionStatus === "denied" && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl flex flex-col gap-2 text-xs text-rose-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-semibold text-rose-300">
+                    <VideoOff className="w-4 h-4 text-rose-400" />
+                    <span>Camera / Mic Blocked by Browser</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsTestingDevices(true);
+                      await onTestMediaDevices();
+                      setIsTestingDevices(false);
+                    }}
+                    className="px-2.5 py-1 bg-rose-500 hover:bg-rose-400 text-white font-semibold rounded-lg text-xs transition-colors"
+                  >
+                    Retry Permission
+                  </button>
+                </div>
+                <p className="text-[11px] text-rose-300/80 leading-relaxed">
+                  Please tap the <strong>camera / lock icon</strong> in your browser's address bar, set Camera & Microphone to <strong>"Allow"</strong>, and tap Retry.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="relative w-full max-w-md aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl flex items-center justify-center">
             {!isVideoOff && localStream ? (
               <video

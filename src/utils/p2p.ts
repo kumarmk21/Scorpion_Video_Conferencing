@@ -10,23 +10,32 @@ export interface P2PCallbacks {
   onStatusChange: (status: "connecting" | "connected" | "disconnected") => void;
 }
 
-// Enterprise-grade STUN + TURN Relay servers for 100% NAT/CGNAT/Cellular traversal
+// Comprehensive STUN + TURN Relay servers for universal NAT, CGNAT, and firewall traversal
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
+  { urls: "stun:openrelay.metered.ca:80" },
   {
-    urls: "turn:standard.relay.metered.ca:80",
+    urls: "turn:openrelay.metered.ca:80",
     username: "openrelayproject",
     credential: "openrelayproject",
   },
   {
-    urls: "turn:standard.relay.metered.ca:443",
+    urls: "turn:openrelay.metered.ca:443",
     username: "openrelayproject",
     credential: "openrelayproject",
   },
   {
-    urls: "turn:standard.relay.metered.ca:443?transport=tcp",
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: "turns:openrelay.metered.ca:443?transport=tcp",
     username: "openrelayproject",
     credential: "openrelayproject",
   },
@@ -66,7 +75,7 @@ export class P2PConferenceManager {
   }
 
   private getSlotId(slot: number): string {
-    return `omni-${this.roomId}-slot-${slot}`;
+    return `scop-${this.roomId}-slot-${slot}`;
   }
 
   public async start() {
@@ -78,7 +87,7 @@ export class P2PConferenceManager {
     if (this.isDestroyed) return;
     if (slot > MAX_SLOTS) {
       // If all standard slots are in use, use random hash slot
-      this.initPeer(`omni-${this.roomId}-${this.userId.slice(-6)}`, -1);
+      this.initPeer(`scop-${this.roomId}-${this.userId.slice(-6)}`, -1);
       return;
     }
 
@@ -171,10 +180,13 @@ export class P2PConferenceManager {
       if (s === this.currentSlot) continue;
       const targetPeerId = this.getSlotId(s);
 
-      // Only initiate connection if we are not already connected
-      if (!this.calls.has(targetPeerId) && !this.dataConns.has(targetPeerId)) {
-        // Tie-breaker: higher slot connects to lower slot
-        if (this.currentSlot > s || this.currentSlot === -1) {
+      // Connect if data connection or media call is not yet established
+      const needsData = !this.dataConns.has(targetPeerId);
+      const needsMedia = !this.calls.has(targetPeerId);
+
+      if (needsData || needsMedia) {
+        // Deterministic connection: higher slot or -1 calls lower slot, or slot 1 retries if needed
+        if (this.currentSlot > s || this.currentSlot === -1 || (this.currentSlot === 1 && !this.calls.has(targetPeerId) && this.dataConns.has(targetPeerId))) {
           this.connectToPeer(targetPeerId);
         }
       }
@@ -183,30 +195,30 @@ export class P2PConferenceManager {
 
   private connectToPeer(remotePeerId: string) {
     if (!this.peer || this.peer.destroyed || this.isDestroyed) return;
-    if (this.calls.has(remotePeerId)) return;
 
-    console.log("[P2P] Calling remote peer:", remotePeerId);
-
-    // 1. Initiate Data Channel
-    try {
-      const conn = this.peer.connect(remotePeerId, {
-        reliable: true,
-        metadata: {
-          name: this.userName,
-          role: this.userRole,
-          userId: this.userId,
-        },
-      });
-      if (conn) {
-        this.setupDataHandlers(conn);
+    // 1. Initiate Data Channel if not already open
+    if (!this.dataConns.has(remotePeerId)) {
+      try {
+        const conn = this.peer.connect(remotePeerId, {
+          reliable: true,
+          metadata: {
+            name: this.userName,
+            role: this.userRole,
+            userId: this.userId,
+          },
+        });
+        if (conn) {
+          this.setupDataHandlers(conn);
+        }
+      } catch (e) {
+        console.warn("[P2P] Data connect error:", e);
       }
-    } catch (e) {
-      console.warn("[P2P] Data connect error:", e);
     }
 
-    // 2. Initiate Media Call if localStream is available
-    if (this.localStream) {
+    // 2. Initiate Media Call if localStream is available and not already calling
+    if (this.localStream && !this.calls.has(remotePeerId)) {
       try {
+        console.log("[P2P] Initiating media call with stream tracks:", this.localStream.getTracks().map(t => t.kind), "to", remotePeerId);
         const call = this.peer.call(remotePeerId, this.localStream, {
           metadata: {
             name: this.userName,
@@ -226,8 +238,8 @@ export class P2PConferenceManager {
   private setupCallHandlers(call: MediaConnection) {
     this.calls.set(call.peer, call);
 
-    call.on("stream", (remoteStream) => {
-      console.log("[P2P] Active remote media stream from:", call.peer);
+    const handleRemoteStream = (remoteStream: MediaStream) => {
+      console.log("[P2P] Active remote media stream from:", call.peer, "tracks:", remoteStream.getTracks().map(t => `${t.kind}:${t.readyState}`));
       const meta = (call.metadata as any) || {};
       const profile = this.peerProfiles.get(call.peer) || {
         name: meta.name || (call.peer.includes("-1") ? "Host" : "Participant"),
@@ -235,7 +247,35 @@ export class P2PConferenceManager {
       };
 
       this.callbacks.onRemoteStream(call.peer, profile.name, profile.role, remoteStream);
+    };
+
+    call.on("stream", (remoteStream) => {
+      handleRemoteStream(remoteStream);
     });
+
+    // Also attach directly to RTCPeerConnection ontrack for sub-track resilience
+    // @ts-ignore
+    const pc: RTCPeerConnection | undefined = call.peerConnection;
+    if (pc) {
+      pc.ontrack = (event) => {
+        console.log("[P2P] RTCPeerConnection ontrack event:", event.track.kind, "from peer:", call.peer);
+        const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+        handleRemoteStream(stream);
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log(`[P2P] ICE state with ${call.peer}:`, pc.iceConnectionState);
+        if (pc.iceConnectionState === "failed") {
+          console.warn(`[P2P] ICE failed with ${call.peer}, attempting ICE restart...`);
+          try {
+            // @ts-ignore
+            if (typeof pc.restartIce === "function") {
+              pc.restartIce();
+            }
+          } catch (e) {}
+        }
+      };
+    }
 
     call.on("close", () => {
       console.log("[P2P] Call disconnected:", call.peer);
@@ -354,14 +394,18 @@ export class P2PConferenceManager {
     // Update tracks on all active peer connections
     this.calls.forEach((call) => {
       // @ts-ignore
-      if (call.peerConnection) {
+      const pc: RTCPeerConnection | undefined = call.peerConnection;
+      if (pc) {
         try {
-          // @ts-ignore
-          const senders: RTCRtpSender[] = call.peerConnection.getSenders();
+          const senders = pc.getSenders();
           newStream.getTracks().forEach((track) => {
             const sender = senders.find((s) => s.track?.kind === track.kind);
             if (sender) {
               sender.replaceTrack(track).catch(() => {});
+            } else {
+              try {
+                pc.addTrack(track, newStream);
+              } catch (e) {}
             }
           });
         } catch (e) {}

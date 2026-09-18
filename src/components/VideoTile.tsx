@@ -27,12 +27,48 @@ export const VideoTile: React.FC<Props> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    if (videoRef.current && participant.stream) {
-      videoRef.current.srcObject = participant.stream;
+    const video = videoRef.current;
+    if (!video || !participant.stream) return;
+
+    if (video.srcObject !== participant.stream) {
+      video.srcObject = participant.stream;
     }
-  }, [participant.stream]);
+
+    const startPlayback = () => {
+      video
+        .play()
+        .then(() => {
+          if (!isLocal) {
+            setAudioBlocked(false);
+          }
+        })
+        .catch((err) => {
+          console.warn("[VideoTile] Play error notice:", err);
+          if (!isLocal) {
+            // Autoplay policy restriction (user interaction required for unmuted media)
+            setAudioBlocked(true);
+          }
+        });
+    };
+
+    startPlayback();
+    video.addEventListener("loadedmetadata", startPlayback);
+    participant.stream.addEventListener("addtrack", startPlayback);
+
+    return () => {
+      video.removeEventListener("loadedmetadata", startPlayback);
+      participant.stream?.removeEventListener("addtrack", startPlayback);
+    };
+  }, [participant.stream, isLocal]);
 
   const handleManualAudioPlay = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      videoRef.current
+        .play()
+        .then(() => setAudioBlocked(false))
+        .catch(console.warn);
+    }
     if (audioRef.current) {
       audioRef.current
         .play()
@@ -67,7 +103,7 @@ export const VideoTile: React.FC<Props> = ({
           : "border-slate-800/80 hover:border-slate-700"
       }`}
     >
-      {/* Hidden audio element for remote participants so audio ALWAYS plays cleanly */}
+      {/* Hidden audio element for remote participants as secondary audio backup */}
       {!isLocal && participant.stream && (
         <audio
           ref={(el) => {
@@ -75,7 +111,7 @@ export const VideoTile: React.FC<Props> = ({
             if (el && participant.stream && el.srcObject !== participant.stream) {
               el.srcObject = participant.stream;
               el.play().catch((e) => {
-                console.warn("Autoplay block detected:", e);
+                console.warn("Autoplay audio notice:", e);
                 setAudioBlocked(true);
               });
             }
@@ -89,7 +125,7 @@ export const VideoTile: React.FC<Props> = ({
       {audioBlocked && !isLocal && (
         <button
           onClick={handleManualAudioPlay}
-          className="absolute z-30 top-3 left-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg animate-pulse"
+          className="absolute z-30 top-3 left-3 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg animate-pulse cursor-pointer"
         >
           <Mic className="w-3.5 h-3.5" />
           <span>Tap to Enable Audio</span>
@@ -109,7 +145,7 @@ export const VideoTile: React.FC<Props> = ({
             }}
             autoPlay
             playsInline
-            muted={true}
+            muted={Boolean(isLocal)}
             className={`w-full h-full object-cover ${isLocal && !participant.isScreenSharing ? "scale-x-[-1]" : ""}`}
             style={getFilterStyle()}
           />
