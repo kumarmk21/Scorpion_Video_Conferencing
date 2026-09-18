@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { VirtualBackground } from "../types";
 import { ScopMeetLogo } from "./ScopMeetLogo";
+import { checkLiveKitStatus } from "../utils/livekit";
 
 interface Props {
   localStream: MediaStream | null;
@@ -73,6 +74,19 @@ export const MeetingLobby: React.FC<Props> = ({
     }
     return "host";
   });
+
+  const [sfuStatus, setSfuStatus] = useState<{
+    configured: boolean;
+    valid: boolean;
+    error?: string;
+    hint?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    checkLiveKitStatus().then((res) => {
+      setSfuStatus(res);
+    });
+  }, []);
 
   const isInAppBrowser = typeof navigator !== "undefined" && /WhatsApp|FBAN|FBAV|Instagram|Line/i.test(navigator.userAgent || "");
 
@@ -174,7 +188,15 @@ export const MeetingLobby: React.FC<Props> = ({
                   <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span>Hardware verified: Camera & Microphone active</span>
                 </div>
-                <span className="text-[10px] text-emerald-400/80 font-mono">LiveKit SFU Ready</span>
+                {sfuStatus?.configured && sfuStatus.valid ? (
+                  <span className="text-[10px] text-emerald-400 font-mono">LiveKit SFU Active</span>
+                ) : sfuStatus?.configured && !sfuStatus.valid ? (
+                  <span className="text-[10px] text-amber-400 font-mono" title={sfuStatus.hint || sfuStatus.error}>
+                    WebRTC Mesh Active
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400/80 font-mono">WebRTC Mesh Ready</span>
+                )}
               </div>
             )}
 

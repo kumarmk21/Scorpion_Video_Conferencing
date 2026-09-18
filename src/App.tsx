@@ -36,7 +36,13 @@ import {
   Radio
 } from "lucide-react";
 import { Room, RoomEvent, RemoteTrack, RemoteParticipant, Track } from "livekit-client";
-import { fetchLiveKitToken, createLiveKitRoom } from "./utils/livekit";
+import {
+  fetchLiveKitToken,
+  createLiveKitRoom,
+  startLiveKitRecording,
+  stopLiveKitRecording,
+  moderateParticipant,
+} from "./utils/livekit";
 import { P2PConferenceManager } from "./utils/p2p";
 
 export default function App() {
@@ -71,13 +77,20 @@ export default function App() {
 
   // Connection & WebRTC Mesh / SFU State
   const [connectionMode, setConnectionMode] = useState<"sfu" | "p2p">("sfu");
+  const [livekitNotice, setLivekitNotice] = useState<string | null>(null);
   const livekitRoomRef = useRef<Room | null>(null);
   const [activeLivekitRoom, setActiveLivekitRoom] = useState<Room | null>(null);
   const p2pManagerRef = useRef<P2PConferenceManager | null>(null);
   const [livekitStatus, setLivekitStatus] = useState<"disconnected" | "connecting" | "connected" | "demo">("disconnected");
   const [livekitUrl, setLivekitUrl] = useState<string>("wss://omnimeet-gm23xe8u.livekit.cloud");
+  const joinConfigRef = useRef<{ name: string; room: string; role: "host" | "speaker" | "attendee" }>({
+    name: userName,
+    room: roomId,
+    role: userRole,
+  });
 
-  // Media Stream & Device State
+  const [isRecording, setIsRecording] = useState(false);
+  const [egressId, setEgressId] = useState<string | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -201,9 +214,13 @@ export default function App() {
     let isSubscribed = true;
 
     async function initLiveKit() {
+      const targetRoom = joinConfigRef.current.room || roomId || "corp-strategy-room";
+      const targetName = joinConfigRef.current.name || userName || "Guest";
+      const targetRole = joinConfigRef.current.role || userRole || "attendee";
+
       try {
         setLivekitStatus("connecting");
-        const tokenRes = await fetchLiveKitToken(roomId, userName, currentUserId);
+        const tokenRes = await fetchLiveKitToken(targetRoom, targetName, currentUserId, targetRole);
         
         if (!isSubscribed) return;
 
@@ -330,6 +347,24 @@ export default function App() {
                 setRemoteParticipants((prev) =>
                   prev.map((p) => (p.id === data.userId ? { ...p, isHandRaised: data.isHandRaised } : p))
                 );
+              } else if (data.type === "moderation") {
+                if (data.action === "mute" && (data.targetId === "all" || data.targetId === currentUserId)) {
+                  setIsMuted(true);
+                  if (localStream) {
+                    localStream.getAudioTracks().forEach((t) => (t.enabled = false));
+                  }
+                  if (livekitRoomRef.current) {
+                    livekitRoomRef.current.localParticipant.setMicrophoneEnabled(false).catch(console.warn);
+                  }
+                } else if (data.action === "lower_hand" && (data.targetId === "all" || data.targetId === currentUserId)) {
+                  setIsHandRaised(false);
+                } else if (data.action === "remove" && data.targetId === currentUserId) {
+                  alert("You have been removed from the meeting by the host.");
+                  handleLeaveMeeting();
+                }
+              } else if (data.type === "recording_status") {
+                setIsRecording(Boolean(data.isRecording));
+                if (data.egressId) setEgressId(data.egressId);
               }
             } catch (err) {
               console.warn("DataChannel message parse notice:", err);
@@ -371,16 +406,21 @@ export default function App() {
                 }
               }
             }
-          } catch (connErr) {
+          } catch (connErr: any) {
             console.warn("LiveKit SFU connection error; falling back to direct P2P mesh:", connErr);
+            setLivekitNotice(connErr?.message || "LiveKit Cloud connection unavailable; mesh fallback active.");
             startP2P();
           }
         } else {
           console.log("LiveKit SFU not configured; activating direct P2P mesh...");
+          if (tokenRes.message) {
+            setLivekitNotice(tokenRes.message);
+          }
           startP2P();
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("LiveKit connection notice, activating direct P2P mesh:", err);
+        setLivekitNotice(err?.message || "LiveKit notice; activating P2P mesh.");
         startP2P();
       }
     }
@@ -396,11 +436,15 @@ export default function App() {
         p2pManagerRef.current = null;
       }
 
+      const activeRoom = joinConfigRef.current.room || roomId || "corp-strategy-room";
+      const activeName = joinConfigRef.current.name || userName || "Guest";
+      const activeRole = joinConfigRef.current.role || userRole;
+
       const manager = new P2PConferenceManager(
-        roomId,
+        activeRoom,
         currentUserId,
-        userName,
-        userRole,
+        activeName,
+        activeRole,
         localStream,
         {
           onRemoteStream: (peerId, name, role, stream) => {
@@ -702,9 +746,15 @@ export default function App() {
   const handleJoinMeeting = (name: string, room: string, role: "host" | "speaker" | "attendee") => {
     const cleanName = name.trim() || "Guest";
     const cleanRoom = room.trim().toLowerCase().replace(/\s+/g, "-") || "corp-strategy-room";
+    joinConfigRef.current = {
+      name: cleanName,
+      room: cleanRoom,
+      role: role,
+    };
     setUserName(cleanName);
     setRoomId(cleanRoom);
     setUserRole(role);
+    setLivekitNotice(null);
     try {
       localStorage.setItem("scopmeet_username", cleanName);
       localStorage.setItem("omnimeet_username", cleanName);
@@ -717,6 +767,11 @@ export default function App() {
   };
 
   const handleLeaveMeeting = () => {
+    if (isRecording) {
+      stopLiveKitRecording(roomId, egressId || undefined).catch(console.warn);
+      setIsRecording(false);
+      setEgressId(null);
+    }
     setInMeeting(false);
     setCallDuration(0);
     stopMediaStream(screenStream);
@@ -726,6 +781,96 @@ export default function App() {
       p2pManagerRef.current = null;
     }
     setRemoteParticipants([]);
+  };
+
+  // LiveKit Cloud Egress Recording Controls
+  const handleToggleRecording = async () => {
+    const activeRoom = roomId || "corp-strategy-room";
+    if (isRecording) {
+      await stopLiveKitRecording(activeRoom, egressId || undefined);
+      setIsRecording(false);
+      setEgressId(null);
+      if (livekitRoomRef.current) {
+        try {
+          const payload = new TextEncoder().encode(
+            JSON.stringify({ type: "recording_status", isRecording: false })
+          );
+          livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+        } catch (e) {}
+      }
+    } else {
+      const res = await startLiveKitRecording(activeRoom);
+      if (res.success) {
+        setIsRecording(true);
+        if (res.egressId) setEgressId(res.egressId);
+        if (livekitRoomRef.current) {
+          try {
+            const payload = new TextEncoder().encode(
+              JSON.stringify({ type: "recording_status", isRecording: true, egressId: res.egressId })
+            );
+            livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+          } catch (e) {}
+        }
+      } else if (res.error) {
+        alert(`LiveKit Egress: ${res.error}`);
+      }
+    }
+  };
+
+  // Host Moderator Controls
+  const handleHostMuteAll = async () => {
+    await moderateParticipant(roomId, "mute_all");
+    setRemoteParticipants((prev) => prev.map((p) => ({ ...p, isMuted: true })));
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "moderation", action: "mute", targetId: "all" })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+      } catch (e) {}
+    }
+  };
+
+  const handleHostMuteParticipant = async (participantId: string) => {
+    await moderateParticipant(roomId, "mute", participantId);
+    setRemoteParticipants((prev) =>
+      prev.map((p) => (p.id === participantId ? { ...p, isMuted: true } : p))
+    );
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "moderation", action: "mute", targetId: participantId })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+      } catch (e) {}
+    }
+  };
+
+  const handleHostRemoveParticipant = async (participantId: string) => {
+    await moderateParticipant(roomId, "remove", participantId);
+    setRemoteParticipants((prev) => prev.filter((p) => p.id !== participantId));
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "moderation", action: "remove", targetId: participantId })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+      } catch (e) {}
+    }
+  };
+
+  const handleHostLowerHand = (participantId: string) => {
+    setRemoteParticipants((prev) =>
+      prev.map((p) => (p.id === participantId ? { ...p, isHandRaised: false } : p))
+    );
+    if (livekitRoomRef.current) {
+      try {
+        const payload = new TextEncoder().encode(
+          JSON.stringify({ type: "moderation", action: "lower_hand", targetId: participantId })
+        );
+        livekitRoomRef.current.localParticipant.publishData(payload, { reliable: true }).catch(() => {});
+      } catch (e) {}
+    }
   };
 
   const handleCopyRoomLink = () => {
@@ -856,6 +1001,25 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* LiveKit Cloud / P2P Mesh Diagnostic Notice Strip */}
+      {connectionMode === "p2p" && livekitNotice && (
+        <div className="bg-amber-950/60 border-b border-amber-500/30 px-4 py-1.5 flex items-center justify-between text-xs text-amber-200">
+          <div className="flex items-center gap-2">
+            <Radio className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>
+              <strong>WebRTC Direct Mesh Active:</strong> Real-time video/audio routing with Google & Cloudflare STUN traversal.
+              {livekitNotice.includes("invalid API key") ? " (LiveKit Cloud key invalid in environment - update in Settings)." : ` (${livekitNotice})`}
+            </span>
+          </div>
+          <button
+            onClick={() => setLivekitNotice(null)}
+            className="text-amber-400 hover:text-amber-200 text-[11px] font-semibold px-2 py-0.5 rounded transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Main Video & Stage Area + Side Panels */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -1003,9 +1167,11 @@ export default function App() {
             participants={allParticipants}
             currentUserId={currentUserId}
             roomId={roomId}
-            onMuteAll={() => {
-              setRemoteParticipants((prev) => prev.map((p) => ({ ...p, isMuted: true })));
-            }}
+            isCurrentUserHost={userRole === "host"}
+            onMuteAll={handleHostMuteAll}
+            onMuteParticipant={handleHostMuteParticipant}
+            onRemoveParticipant={handleHostRemoveParticipant}
+            onLowerHand={handleHostLowerHand}
             onClose={() => setActivePanel(null)}
           />
         )}
@@ -1023,10 +1189,13 @@ export default function App() {
         unreadChatCount={unreadChatCount}
         participantCount={allParticipants.length}
         availableDevices={availableDevices}
+        isRecording={isRecording}
+        isHost={userRole === "host"}
         onToggleMic={handleToggleMic}
         onToggleVideo={handleToggleVideo}
         onToggleScreenShare={handleToggleScreenShare}
         onToggleHandRaise={handleToggleHandRaise}
+        onToggleRecording={handleToggleRecording}
         onTogglePanel={(panel) => setActivePanel(activePanel === panel ? null : panel)}
         onToggleViewMode={() => setViewMode(viewMode === "grid" ? "spotlight" : "grid")}
         onSendReaction={handleSendReaction}

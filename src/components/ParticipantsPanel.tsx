@@ -1,12 +1,16 @@
 import React, { useState } from "react";
-import { Users, Mic, MicOff, Video, VideoOff, Hand, Shield, Copy, Check, UserPlus } from "lucide-react";
+import { Users, Mic, MicOff, Video, VideoOff, Hand, Shield, Copy, Check, UserMinus, VolumeX } from "lucide-react";
 import { Participant } from "../types";
 
 interface Props {
   participants: Participant[];
   currentUserId: string;
   roomId: string;
+  isCurrentUserHost?: boolean;
   onMuteAll?: () => void;
+  onMuteParticipant?: (participantId: string) => void;
+  onRemoveParticipant?: (participantId: string) => void;
+  onLowerHand?: (participantId: string) => void;
   onClose: () => void;
 }
 
@@ -14,10 +18,15 @@ export const ParticipantsPanel: React.FC<Props> = ({
   participants,
   currentUserId,
   roomId,
+  isCurrentUserHost = false,
   onMuteAll,
+  onMuteParticipant,
+  onRemoveParticipant,
+  onLowerHand,
   onClose,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [confirmKickId, setConfirmKickId] = useState<string | null>(null);
 
   const handleCopyLink = () => {
     const inviteUrl = `${window.location.origin}?room=${roomId}`;
@@ -41,7 +50,9 @@ export const ParticipantsPanel: React.FC<Props> = ({
                 {participants.length}
               </span>
             </h3>
-            <p className="text-[11px] text-slate-400">People in this call</p>
+            <p className="text-[11px] text-slate-400">
+              LiveKit Cloud Managed Room • {isCurrentUserHost ? "You are Host" : "Attendee View"}
+            </p>
           </div>
         </div>
         <button
@@ -76,9 +87,9 @@ export const ParticipantsPanel: React.FC<Props> = ({
               className="flex items-center justify-between p-2.5 bg-slate-800/50 hover:bg-slate-800/80 border border-slate-700/60 rounded-xl transition-colors"
             >
               {/* Left info */}
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
                 <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs border border-slate-700"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-xs border border-slate-700 shrink-0"
                   style={{ backgroundColor: p.avatarColor }}
                 >
                   {p.name
@@ -88,12 +99,12 @@ export const ParticipantsPanel: React.FC<Props> = ({
                     .slice(0, 2)
                     .toUpperCase()}
                 </div>
-                <div>
-                  <div className="font-medium text-slate-200 flex items-center gap-1.5">
-                    <span className="truncate max-w-[120px]">{p.name}</span>
-                    {isMe && <span className="text-[10px] text-slate-400">(You)</span>}
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-slate-200 flex items-center gap-1.5 truncate">
+                    <span className="truncate max-w-[110px]">{p.name}</span>
+                    {isMe && <span className="text-[10px] text-slate-400 shrink-0">(You)</span>}
                     {p.role === "host" && (
-                      <span className="flex items-center gap-0.5 px-1 py-0.2 bg-red-500/20 text-red-300 text-[10px] font-medium rounded">
+                      <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-500/20 text-red-300 text-[10px] font-medium rounded shrink-0">
                         <Shield className="w-2.5 h-2.5" />
                         Host
                       </span>
@@ -103,30 +114,80 @@ export const ParticipantsPanel: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Status Icons */}
-              <div className="flex items-center gap-2">
+              {/* Status Icons & Moderator Actions */}
+              <div className="flex items-center gap-1.5 shrink-0">
                 {p.isHandRaised && (
-                  <span className="p-1 bg-amber-500/20 text-amber-300 rounded" title="Hand Raised">
+                  <button
+                    onClick={() => isCurrentUserHost && onLowerHand?.(p.id)}
+                    className="p-1 bg-amber-500/20 text-amber-300 rounded hover:bg-amber-500/30 transition-colors"
+                    title={isCurrentUserHost ? "Click to lower hand" : "Hand Raised"}
+                  >
                     <Hand className="w-3.5 h-3.5" />
-                  </span>
+                  </button>
                 )}
+
                 {p.isVideoOff ? (
-                  <span className="text-slate-500" title="Camera Off">
+                  <span className="p-1 text-slate-500" title="Camera Off">
                     <VideoOff className="w-3.5 h-3.5" />
                   </span>
                 ) : (
-                  <span className="text-slate-400" title="Camera On">
+                  <span className="p-1 text-slate-400" title="Camera On">
                     <Video className="w-3.5 h-3.5" />
                   </span>
                 )}
+
                 {p.isMuted ? (
-                  <span className="text-rose-400" title="Microphone Muted">
+                  <span className="p-1 text-rose-400" title="Microphone Muted">
                     <MicOff className="w-3.5 h-3.5" />
                   </span>
                 ) : (
-                  <span className="text-emerald-400" title="Microphone Active">
+                  <span className="p-1 text-emerald-400" title="Microphone Active">
                     <Mic className="w-3.5 h-3.5" />
                   </span>
+                )}
+
+                {/* Host Controls for remote participants */}
+                {isCurrentUserHost && !isMe && (
+                  <div className="flex items-center gap-1 ml-1 border-l border-slate-700 pl-1.5">
+                    {!p.isMuted && (
+                      <button
+                        onClick={() => onMuteParticipant?.(p.id)}
+                        className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 rounded transition-colors"
+                        title={`Mute ${p.name}`}
+                      >
+                        <VolumeX className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {confirmKickId === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            onRemoveParticipant?.(p.id);
+                            setConfirmKickId(null);
+                          }}
+                          className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-semibold"
+                          title="Confirm removal"
+                        >
+                          Kick
+                        </button>
+                        <button
+                          onClick={() => setConfirmKickId(null)}
+                          className="px-1 py-0.5 text-slate-400 hover:text-white text-[10px]"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmKickId(p.id)}
+                        className="p-1 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded transition-colors"
+                        title={`Remove ${p.name} from meeting`}
+                      >
+                        <UserMinus className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -135,13 +196,17 @@ export const ParticipantsPanel: React.FC<Props> = ({
       </div>
 
       {/* Host Controls Footer */}
-      {onMuteAll && (
+      {isCurrentUserHost && onMuteAll && (
         <div className="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
-          <span className="text-[11px] text-slate-400">Host Controls</span>
+          <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+            <Shield className="w-3 h-3 text-red-400" />
+            Moderator Controls
+          </span>
           <button
             onClick={onMuteAll}
-            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-medium transition-colors"
+            className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5"
           >
+            <VolumeX className="w-3.5 h-3.5" />
             Mute All Attendees
           </button>
         </div>
@@ -149,3 +214,4 @@ export const ParticipantsPanel: React.FC<Props> = ({
     </div>
   );
 };
+

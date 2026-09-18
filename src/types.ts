@@ -74,3 +74,13 @@ export interface LiveKitStats {
   quality: "excellent" | "good" | "poor";
   history: NetworkStatPoint[];
 }
+
+export interface EgressRecordingState {
+  isRecording: boolean;
+  egressId?: string;
+  startedAt?: number;
+  duration?: number;
+  filepath?: string;
+  provider?: string;
+}
+

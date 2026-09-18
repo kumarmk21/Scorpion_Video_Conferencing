@@ -26,6 +26,13 @@ export const VideoTile: React.FC<Props> = ({
   const [audioBlocked, setAudioBlocked] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const hasLiveVideoTrack = Boolean(
+    participant.stream &&
+      participant.stream.getVideoTracks().length > 0 &&
+      participant.stream.getVideoTracks().some((t) => t.readyState === "live")
+  );
+  const showVideo = (!participant.isVideoOff || hasLiveVideoTrack) && Boolean(participant.stream);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !participant.stream) return;
@@ -43,9 +50,11 @@ export const VideoTile: React.FC<Props> = ({
           }
         })
         .catch((err) => {
-          console.warn("[VideoTile] Play error notice:", err);
+          console.warn("[VideoTile] Play notice:", err?.name || err);
           if (!isLocal) {
-            // Autoplay policy restriction (user interaction required for unmuted media)
+            // If autoplay is blocked because of audio, mute temporarily so video renders, and prompt user to unmute
+            video.muted = true;
+            video.play().catch(console.warn);
             setAudioBlocked(true);
           }
         });
@@ -63,14 +72,8 @@ export const VideoTile: React.FC<Props> = ({
 
   const handleManualAudioPlay = () => {
     if (videoRef.current) {
-      videoRef.current.muted = false;
+      videoRef.current.muted = Boolean(isLocal);
       videoRef.current
-        .play()
-        .then(() => setAudioBlocked(false))
-        .catch(console.warn);
-    }
-    if (audioRef.current) {
-      audioRef.current
         .play()
         .then(() => setAudioBlocked(false))
         .catch(console.warn);
@@ -133,7 +136,7 @@ export const VideoTile: React.FC<Props> = ({
       )}
 
       {/* Video Stream or Avatar fallback */}
-      {!participant.isVideoOff && participant.stream ? (
+      {showVideo && participant.stream ? (
         <div className="relative w-full h-full overflow-hidden bg-black flex items-center justify-center">
           <video
             ref={(el) => {

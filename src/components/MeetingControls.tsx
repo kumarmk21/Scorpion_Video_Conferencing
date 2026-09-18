@@ -18,7 +18,8 @@ import {
   LayoutGrid,
   Maximize2,
   Minimize2,
-  Check
+  Check,
+  Disc
 } from "lucide-react";
 import { VirtualBackground, ViewMode } from "../types";
 
@@ -32,6 +33,8 @@ interface Props {
   activePanel: "ai" | "chat" | "participants" | null;
   unreadChatCount: number;
   participantCount: number;
+  isRecording?: boolean;
+  isHost?: boolean;
   availableDevices: {
     audioInputs: MediaDeviceInfo[];
     videoInputs: MediaDeviceInfo[];
@@ -40,6 +43,7 @@ interface Props {
   onToggleVideo: () => void;
   onToggleScreenShare: () => void;
   onToggleHandRaise: () => void;
+  onToggleRecording?: () => void;
   onTogglePanel: (panel: "ai" | "chat" | "participants") => void;
   onToggleViewMode: () => void;
   onSendReaction: (emoji: string) => void;
@@ -58,10 +62,13 @@ export const MeetingControls: React.FC<Props> = ({
   activePanel,
   unreadChatCount,
   participantCount,
+  isRecording = false,
+  isHost = false,
   onToggleMic,
   onToggleVideo,
   onToggleScreenShare,
   onToggleHandRaise,
+  onToggleRecording,
   onTogglePanel,
   onToggleViewMode,
   onSendReaction,
@@ -95,6 +102,25 @@ export const MeetingControls: React.FC<Props> = ({
           <Server className="w-4 h-4 text-red-400" />
           <span className="hidden md:inline">Server Guide</span>
         </button>
+
+        {/* LiveKit Cloud Egress Recording Button */}
+        {onToggleRecording && (
+          <button
+            onClick={onToggleRecording}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all border ${
+              isRecording
+                ? "bg-rose-600/30 text-rose-200 border-rose-500/60 ring-2 ring-rose-500/30"
+                : "bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border-slate-800"
+            }`}
+            title={isRecording ? "Stop LiveKit Cloud Recording" : "Start LiveKit Cloud Egress Recording"}
+          >
+            <Disc className={`w-4 h-4 ${isRecording ? "text-rose-400 animate-spin" : "text-slate-400"}`} />
+            <span className="hidden lg:inline">
+              {isRecording ? "REC (LiveKit Egress)" : "Record"}
+            </span>
+            {isRecording && <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />}
+          </button>
+        )}
       </div>
 
       {/* Center: Primary Call Controls */}

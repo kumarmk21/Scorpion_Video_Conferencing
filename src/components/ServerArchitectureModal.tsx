@@ -157,15 +157,16 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                 </div>
               </div>
 
-              {/* Crucial Network Requirement: STUN & TURN */}
+              {/* Managed WebRTC Relay: LiveKit Cloud */}
               <div className="p-4 bg-slate-800/60 border border-slate-700 rounded-xl space-y-2">
-                <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
-                  <AlertTriangle className="w-4 h-4" />
-                  Crucial Enterprise Requirement: Coturn STUN/TURN Relay Server
+                <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  Managed Infrastructure: LiveKit Cloud (cloud.livekit.io)
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  In enterprise networks, **15% to 25% of employees** work behind strict symmetric corporate NATs or strict firewalls that block direct UDP. 
-                  You must deploy a **TURN server (Coturn)** on port 443 (TLS/TCP fallback) to guarantee 100% call connection success rate regardless of corporate VPNs or firewall policies.
+                  In enterprise networks, strict symmetric NATs or restrictive corporate firewalls can block direct UDP. 
+                  **LiveKit Cloud** provides fully managed global WebRTC/SFU infrastructure with automatic ICE negotiation, 
+                  NAT traversal, and edge relay connectivity natively—eliminating the need to deploy or configure separate TURN servers.
                 </p>
               </div>
             </div>
@@ -229,7 +230,7 @@ export const ServerArchitectureModal: React.FC<Props> = ({ isOpen, onClose }) =>
                       Multi-node cluster fronted by Envoy load balancer, Redis room coordinator, and global Geo-DNS edge relays.
                     </p>
                     <div className="text-xs text-red-300 font-mono pt-1">
-                      Specs: 3x c6i.2xlarge nodes + Redis + Coturn cluster • 10-25 Gbps NICs
+                      Specs: LiveKit Cloud Managed SFU Edge Mesh • Global Relay Traversal • Auto-scaled
                     </div>
                   </div>
                   <div className="text-xs text-right text-slate-300 shrink-0 font-mono bg-slate-900/60 px-3 py-2 rounded-lg border border-slate-700">

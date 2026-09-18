@@ -10,36 +10,31 @@ export interface P2PCallbacks {
   onStatusChange: (status: "connecting" | "connected" | "disconnected") => void;
 }
 
-// Comprehensive STUN + TURN Relay servers for universal NAT, CGNAT, and firewall traversal
-const ICE_SERVERS: RTCIceServer[] = [
+// Reliable STUN servers (Google + Cloudflare) with dynamic TURN relay configuration
+let cachedIceServers: RTCIceServer[] = [
   { urls: "stun:stun.l.google.com:19302" },
   { urls: "stun:stun1.l.google.com:19302" },
   { urls: "stun:stun2.l.google.com:19302" },
   { urls: "stun:stun3.l.google.com:19302" },
   { urls: "stun:stun4.l.google.com:19302" },
   { urls: "stun:stun.cloudflare.com:3478" },
-  { urls: "stun:openrelay.metered.ca:80" },
-  {
-    urls: "turn:openrelay.metered.ca:80",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turn:openrelay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  {
-    urls: "turns:openrelay.metered.ca:443?transport=tcp",
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
 ];
+
+// Fetch updated backend ICE configuration (e.g. configured TURN relays)
+async function getEffectiveIceServers(): Promise<RTCIceServer[]> {
+  try {
+    const res = await fetch("/api/webrtc/ice-servers");
+    if (res.ok) {
+      const data = (await res.json()) as { iceServers?: RTCIceServer[] };
+      if (Array.isArray(data.iceServers) && data.iceServers.length > 0) {
+        cachedIceServers = data.iceServers;
+      }
+    }
+  } catch (e) {
+    // Keep default Google / Cloudflare STUN servers
+  }
+  return cachedIceServers;
+}
 
 const MAX_SLOTS = 8;
 
@@ -80,6 +75,7 @@ export class P2PConferenceManager {
 
   public async start() {
     this.callbacks.onStatusChange("connecting");
+    await getEffectiveIceServers();
     this.tryClaimSlot(1);
   }
 
@@ -108,7 +104,8 @@ export class P2PConferenceManager {
 
     const peer = new Peer(myId, {
       config: {
-        iceServers: ICE_SERVERS,
+        iceServers: cachedIceServers,
+        iceTransportPolicy: "all",
       },
     });
 
@@ -265,14 +262,21 @@ export class P2PConferenceManager {
 
       pc.oniceconnectionstatechange = () => {
         console.log(`[P2P] ICE state with ${call.peer}:`, pc.iceConnectionState);
-        if (pc.iceConnectionState === "failed") {
-          console.warn(`[P2P] ICE failed with ${call.peer}, attempting ICE restart...`);
+        if (pc.iceConnectionState === "failed" || pc.iceConnectionState === "disconnected") {
+          console.warn(`[P2P] ICE state '${pc.iceConnectionState}' with ${call.peer}, attempting ICE restart...`);
           try {
             // @ts-ignore
             if (typeof pc.restartIce === "function") {
               pc.restartIce();
             }
           } catch (e) {}
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log(`[P2P] Connection state with ${call.peer}:`, pc.connectionState);
+        if (pc.connectionState === "failed") {
+          console.warn(`[P2P] Connection failed with ${call.peer}`);
         }
       };
     }
